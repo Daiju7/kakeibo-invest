@@ -6,7 +6,6 @@ const PORT = 3000;
 
 app.use(express.json());
 app.use(cors());
-app.use(express.json());
 
 // MySQL接続設定
 const connection = mysql.createConnection({
