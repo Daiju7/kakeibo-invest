@@ -75,13 +75,34 @@
 }
 
 .form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    align-items: end;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 15px;
+  align-items: end;
 }
 
-.inputGroup {
+/* ボタンを最後の行に全幅で配置 */
+.submitButton {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  min-width: 150px;
+}
+
+.submitButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+}.inputGroup {
     display: flex;
     flex-direction: column;
 }
@@ -106,28 +127,8 @@
 }
 
 .input:focus {
-    border-color: #667eea;
-}
-
-.submitButton {
-    padding: 12px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.submitButton:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
-}
-
-/* データ一覧セクション */
+  border-color: #667eea;
+}/* データ一覧セクション */
 .dataSection {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
@@ -157,10 +158,8 @@
 }
 
 .emptyText {
-    argin: 5px 0;
-}
-
-.emptySubtext {
+  margin: 5px 0;
+}.emptySubtext {
     font-size: 0.9rem;
 }
 
@@ -197,15 +196,55 @@
     margin-bottom: 5px;
 }
 
+.itemCategory {
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  display: inline-block;
+  font-weight: 500;
+}
+
+/* カテゴリー別の色分け */
+.categoryFood {
+  background-color: #ffeaa7;
+  color: #d63031;
+}
+
+.categoryTransport {
+  background-color: #74b9ff;
+  color: #0984e3;
+}
+
+.categoryBeauty {
+  background-color: #fd79a8;
+  color: #e84393;
+}
+
+.categoryEntertainment {
+  background-color: #fdcb6e;
+  color: #e17055;
+}
+
+.categoryInvestment {
+  background-color: #00b894;
+  color: #00cec9;
+}
+
+.categoryOther {
+  background-color: #a29bfe;
+  color: #6c5ce7;
+}
+
 .itemDetails {
-    display: flex;
-    gap: 20px;
-    color: #636e72;
+  display: flex;
+  gap: 20px;
+  color: #636e72;
 }
 
 .itemAmount {
-    font-size: 1.2rem;
-    font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 
 .amountPositive {
@@ -235,34 +274,61 @@
 
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
-    .container {
+  .container {
     padding: 10px;
-    }
+  }
 
-    .wrapper {
-        padding: 10px;
-    }
-    
-    .title {
-        font-size: 2rem;
-    }
-    
-    .form {
-        grid-template-columns: 1fr;
-    }
-    
-    .itemDetails {
-        flex-direction: column;
-        gap: 5px;
-    }
-    
-    .dataItem {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
-    
-    .deleteButton {
-        align-self: flex-end;
-    }
+  .wrapper {
+    padding: 10px;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  /* モバイルでは縦並びレイアウト */
+  .form {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 15px;
+  }
+
+  .submitButton {
+    grid-column: 1;
+    justify-self: stretch;
+    margin-top: 10px;
+  }
+  
+  .itemDetails {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .dataItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .deleteButton {
+    align-self: flex-end;
+  }
+
+  /* モバイルでのカテゴリ表示調整 */
+  .itemCategory {
+    font-size: 0.8rem;
+    padding: 3px 6px;
+  }
+}
+
+/* タブレット対応 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .form {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .wrapper {
+    max-width: 700px;
+  }
 }

@@ -4,7 +4,7 @@ import styles from './page.module.css';
 
 export default function Home() {
   const [data, setData] = useState([]); //データベース状態管理
-  const [form, setForm] = useState({ title: "", amount: "", date: "" }); //フォーム状態管理
+  const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
   
   //データ取得 
   useEffect(() => {
@@ -56,6 +56,29 @@ export default function Home() {
   // 金額の合計を計算
   const totalAmount = data.reduce((sum, item) => sum + parseInt(item.amount), 0);
 
+  //カテゴリのラベルを定義
+  const categoryLabels = {
+    food: "🍽️ 食費",
+    transport: "🚃 交通費", 
+    beauty: "💄 衣服・美容費",
+    entertainment: "🎮 娯楽費",
+    investment: "💰 投資",
+    other: "📦 その他"
+  };
+
+  //カテゴリーのCSSクラス名を取得
+  const getCategoryClass = (category) => {
+    const categoryClasses = {
+      food: styles.categoryFood,
+      transport: styles.categoryTransport,
+      beauty: styles.categoryBeauty,
+      entertainment: styles.categoryEntertainment,
+      investment: styles.categoryInvestment,
+      other: styles.categoryOther
+    };
+    return categoryClasses[category] || styles.categoryOther;
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.wrapper}>
@@ -80,10 +103,29 @@ export default function Home() {
               console.log(form);  // 今のフォームの内容を確認
               submitForm();      // フォーム送信関数を実行
               //フォームの中をリセット
-              setForm({ title: "", amount: "", date: "" });
+              setForm({ title: "", amount: "", date: "", category: "" });
             }}
             className={styles.form}
           >
+            {/* カテゴリ選択 */}
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>📂 カテゴリ</label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                required
+                className={styles.input}
+              >
+                <option value="">選択してください</option>
+                <option value="food">食費</option>
+                <option value="transport">交通費</option>
+                <option value="beauty">衣服・美容</option>
+                <option value="entertainment">娯楽費</option>
+                <option value="investment">投資</option>
+                <option value="other">その他</option>
+              </select>
+            </div>
+
             <div className={styles.inputGroup}>
               <label className={styles.label}>📝 項目名</label>
               <input
@@ -146,8 +188,11 @@ export default function Home() {
                     <div className={styles.itemTitle}>
                       🏷️ {item.title}
                     </div>
+                    <div className={`${styles.itemCategory} ${getCategoryClass(item.category)}`}>
+                      {categoryLabels[item.category]}
+                    </div>
                     <div className={styles.itemDetails}>
-                      <span className={`${styles.itemAmount} ${parseInt(item.amount) >= 0 ? styles.amountPositive : styles.amountNegative}`}>
+                      <span className={`${styles.itemAmount} ${parseInt(item.amount) >= 0 ? styles.amountPositive : styles.amountNegative}`}> {/*parseIntは文字列を整数に変換する関数*/}
                         💰 ¥{parseInt(item.amount).toLocaleString()}
                       </span>
                       <span>📅 {item.date}</span>

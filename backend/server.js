@@ -42,10 +42,10 @@ app.get('/api/kakeibo', (req, res) => {
 
 // ② 新しいデータを追加
 app.post('/api/kakeibo', (req, res) => {
-    const { title, amount, date } = req.body;
+    const { title,category, amount, date } = req.body;
     connection.query(
-        'INSERT INTO kakeibo_data (title, amount, date) VALUES (?, ?, ?)',
-        [title, amount, date],
+        'INSERT INTO kakeibo_data (title,category, amount, date) VALUES (?, ?, ?, ?)',
+        [title, category, amount, date],
         (error, results) => {
         if (error) return res.status(500).json({ error });
         res.json({ message: '追加しました！', id: results.insertId });
