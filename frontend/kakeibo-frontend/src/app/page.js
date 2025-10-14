@@ -41,6 +41,20 @@ export default function Home() {
     }
   }
 
+  //削除関数
+  const deleteItem = async(id) => {
+    try{
+      const response = await fetch(`http://localhost:3000/api/kakeibo/${id}`, {
+        method:"DELETE"
+      });
+      const result = await response.json();
+      console.log(result);
+      fetchData(); //データ再取得
+    } catch (error) {
+      console.log('Error deleting item:', error);
+    }
+  }
+
   return (
     <main style={{ padding: "20px" }}>
       <h1>家計簿一覧表示</h1> 
@@ -89,6 +103,8 @@ export default function Home() {
           {data.map((item) => (
             <li key={item.id}>   {/*React の重要な属性 で、リスト要素をレンダリングする際に各要素を一意に識別するために使用される*/}
               {item.title} - ¥{item.amount} - {item.date}
+              {/*削除ぼボタンの追加*/}
+              <button onClick={() => deleteItem(item.id)} style={{ marginLeft: "30px" }}>削除</button>
             </li>
           ))}
         </ul>
