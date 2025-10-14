@@ -25,8 +25,21 @@ export default function Home() {
     }
   }
 
-
-  
+  //フォーム送信関数
+  const submitForm = async() => {
+    try {
+      const response = await fetch("http://localhost:3000/api/kakeibo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      const result = await response.json();
+      console.log(result);
+      fetchData(); //データ再取得
+    } catch (error) {
+    console.log('Error submitting form:', error);
+    }
+  }
 
   return (
     <main style={{ padding: "20px" }}>
@@ -36,6 +49,7 @@ export default function Home() {
         onSubmit={(e) => {
           e.preventDefault(); // ページリロード防止
           console.log(form);  // 今のフォームの内容を確認
+          submitForm();      // フォーム送信関数を実行
           //フォームの中をリセット
           setForm({ title: "", amount: "", date: "" });
         }}
@@ -63,7 +77,7 @@ export default function Home() {
           onChange={(e) => setForm({ ...form, date: e.target.value })}
           required
         />
-        <button type="submit" style={{ marginLeft: "30px" }}>追加</button>
+        <button type="submit"  style={{ marginLeft: "30px" }}>追加</button>
       </form>
 
 
@@ -82,5 +96,3 @@ export default function Home() {
     </main>
   );
 }
-
-//次はpostリクエストの処理開発
