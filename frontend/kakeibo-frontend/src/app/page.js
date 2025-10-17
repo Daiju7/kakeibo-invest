@@ -6,7 +6,7 @@ export default function Home() {
   const [data, setData] = useState([]); //データベース状態管理
   const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
   
-  //データ取得 
+  //データ取得 　useEffectはコンポーネントのライフサイクルに基づいて副作用を実行するためのフック コンポーネントがマウント（初回レンダリング）されたときにfetchData関数を実行してデータを取得する
   useEffect(() => {
     fetchData();
   }, []);
@@ -79,6 +79,13 @@ export default function Home() {
     return categoryClasses[category] || styles.categoryOther;
   };
 
+  //カテゴリー毎の合計金額を計算
+  const getCategoryTotal = (category) => {
+    return data
+      .filter(item => item.category === category)
+      .reduce((sum, item) => sum + parseInt(item.amount), 0); //reduceは配列の各要素に対して累積的な操作を行い、単一の値を生成するメソッド。ここでは、指定されたカテゴリーに属するすべての項目の金額を合計している。
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.wrapper}>
@@ -90,6 +97,21 @@ export default function Home() {
           {/* 合計金額表示 */}
           <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
             📊 合計: ¥{totalAmount.toLocaleString()}
+          </div>
+          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
+            食費: ¥{getCategoryTotal("food").toLocaleString()}
+          </div>
+          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
+            交通費: ¥{getCategoryTotal("transport").toLocaleString()}
+          </div>
+          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
+            衣服・美容費: ¥{getCategoryTotal("beauty").toLocaleString()}
+          </div>
+          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
+            娯楽費: ¥{getCategoryTotal("entertainment").toLocaleString()}
+          </div>
+          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
+            投資: ¥{getCategoryTotal("investment").toLocaleString()}
           </div>
         </div>
 
@@ -215,3 +237,4 @@ export default function Home() {
     </div>
   );
 }
+
