@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import styles from './page.module.css';
+import CycleChart from "./components/Cycle-Chart";
 
 export default function Home() {
   const [data, setData] = useState([]); //データベース状態管理
@@ -98,21 +99,46 @@ export default function Home() {
           <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
             📊 合計: ¥{totalAmount.toLocaleString()}
           </div>
-          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
-            食費: ¥{getCategoryTotal("food").toLocaleString()}
+          
+          {/* カテゴリー別合計表示 */}
+          <div className={styles.categoryTotals}>
+            <div className={styles.categoryTotalItem}>
+              <span className={styles.categoryIcon}>🍽️</span>
+              <span className={styles.categoryName}>食費</span>
+              <span className={styles.categoryAmount}>¥{getCategoryTotal("food").toLocaleString()}</span>
+            </div>
+            <div className={styles.categoryTotalItem}>
+              <span className={styles.categoryIcon}>🚃</span>
+              <span className={styles.categoryName}>交通費</span>
+              <span className={styles.categoryAmount}>¥{getCategoryTotal("transport").toLocaleString()}</span>
+            </div>
+            <div className={styles.categoryTotalItem}>
+              <span className={styles.categoryIcon}>💄</span>
+              <span className={styles.categoryName}>衣服・美容費</span>
+              <span className={styles.categoryAmount}>¥{getCategoryTotal("beauty").toLocaleString()}</span>
+            </div>
+            <div className={styles.categoryTotalItem}>
+              <span className={styles.categoryIcon}>🎮</span>
+              <span className={styles.categoryName}>娯楽費</span>
+              <span className={styles.categoryAmount}>¥{getCategoryTotal("entertainment").toLocaleString()}</span>
+            </div>
+            <div className={styles.categoryTotalItem}>
+              <span className={styles.categoryIcon}>💰</span>
+              <span className={styles.categoryName}>投資</span>
+              <span className={styles.categoryAmount}>¥{getCategoryTotal("investment").toLocaleString()}</span>
+            </div>
+            <div className={styles.categoryTotalItem}>
+              <span className={styles.categoryIcon}>📦</span>
+              <span className={styles.categoryName}>その他</span>
+              <span className={styles.categoryAmount}>¥{getCategoryTotal("other").toLocaleString()}</span>
+            </div>
           </div>
-          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
-            交通費: ¥{getCategoryTotal("transport").toLocaleString()}
-          </div>
-          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
-            衣服・美容費: ¥{getCategoryTotal("beauty").toLocaleString()}
-          </div>
-          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
-            娯楽費: ¥{getCategoryTotal("entertainment").toLocaleString()}
-          </div>
-          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
-            投資: ¥{getCategoryTotal("investment").toLocaleString()}
-          </div>
+        </div>
+
+        {/* グラフセクション */}
+        <div className={styles.chartSection}>
+          <h2 className={styles.chartTitle}>📈 カテゴリー別支出割合</h2>
+          <CycleChart data={data} />
         </div>
 
         {/* フォーム */}
