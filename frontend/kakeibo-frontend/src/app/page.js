@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import styles from './page.module.css';
 import CycleChart from "./components/Cycle-Chart";
 
-export default function Home() {
+export default function Page() {
   const [data, setData] = useState([]); //データベース状態管理
   const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
   
@@ -259,6 +259,13 @@ export default function Home() {
             </div>
           )}
         </div>
+        {/* invest.jsへのリンク追加 */} 
+        <div className={styles.investLinkSection}>
+          <a href="/invest" className={styles.investLink}>
+            💹 投資情報を見る
+          </a>
+        </div>
+        
       </div>
     </div>
   );
