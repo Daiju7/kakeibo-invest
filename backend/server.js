@@ -166,13 +166,82 @@ app.get('/expenses/investment', (req, res) => {
     );
 });
 
+// ========================================
+// 【ALPHA VANTAGE API キャッシュ機能】
+// ========================================
 
+/**
+ * Alpha Vantage APIキャッシュ付き株価データ取得
+ * エンドポイント: GET /api/stock-cached/:symbol
+ * 用途: Alpha Vantage API制限回避のため、MySQLキャッシュを使用
+ */
+app.get('/api/stock-cached/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    const CACHE_EXPIRY_HOURS = 24;
+    
+    try {
+        // キャッシュから最新データを確認
+        const cachedData = await new Promise((resolve, reject) => {
+            connection.query(`
+                SELECT data, fetched_at 
+                FROM stock_cache 
+                WHERE symbol = ? 
+                AND fetched_at > DATE_SUB(NOW(), INTERVAL ? HOUR)
+                ORDER BY fetched_at DESC 
+                LIMIT 1
+            `, [symbol, CACHE_EXPIRY_HOURS], (error, results) => {
+                if (error) reject(error);
+                else resolve(results[0] || null);
+            });
+        });
 
+        // キャッシュヒット時
+        if (cachedData) {
+            console.log(`📦 Cache hit for ${symbol}`);
+            return res.json({
+                data: cachedData.data,
+                cached: true,
+                fetchedAt: cachedData.fetched_at
+            });
+        }
 
+        // キャッシュミス時: ダミーデータを使用（テスト用）
+        console.log(`🧪 Cache miss for ${symbol}, using dummy data`);
+        const dummyData = {
+            "Meta Data": {
+                "1. Information": "Monthly Prices (open, high, low, close) and Volumes",
+                "2. Symbol": symbol,
+                "3. Last Refreshed": "2024-01-31",
+                "4. Time Zone": "US/Eastern"
+            },
+            "Monthly Time Series": {
+                "2024-01-31": { "1. open": "480.00", "2. high": "490.00", "3. low": "470.00", "4. close": "485.50", "5. volume": "1000000" },
+                "2023-12-31": { "1. open": "470.00", "2. high": "480.00", "3. low": "460.00", "4. close": "475.20", "5. volume": "950000" },
+                "2023-11-30": { "1. open": "460.00", "2. high": "470.00", "3. low": "450.00", "4. close": "465.80", "5. volume": "900000" }
+            }
+        };
 
+        // ダミーデータをキャッシュに保存
+        await new Promise((resolve, reject) => {
+            connection.query(`
+                INSERT INTO stock_cache (symbol, data) 
+                VALUES (?, ?)
+            `, [symbol, JSON.stringify(dummyData)], (error) => {
+                if (error) reject(error);
+                else resolve();
+            });
+        });
 
+        console.log(`💾 Saved dummy data for ${symbol} to cache`);
+        res.json({
+            data: dummyData,
+            cached: false,
+            testMode: true
+        });
 
-
-
-
+    } catch (error) {
+        console.error('Cache error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
