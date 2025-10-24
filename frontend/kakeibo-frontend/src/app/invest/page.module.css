@@ -1,0 +1,192 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.heroCard,
+.chartCard,
+.simulationCard {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 24px;
+  padding: 32px 36px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(10px);
+}
+
+.heroHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: 2.2rem;
+  color: var(--foreground);
+  font-weight: 700;
+  letter-spacing: 0.015em;
+}
+
+.heroSubtitle {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--muted-text);
+}
+
+.heroMetrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.metricPill {
+  flex: 1 1 200px;
+  min-width: 180px;
+  background: rgba(242, 246, 252, 0.95);
+  border-radius: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(58, 123, 213, 0.18);
+}
+
+.metricLabel {
+  font-size: 0.85rem;
+  color: var(--muted-text);
+  margin-bottom: 6px;
+}
+
+.metricValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.metricPositive {
+  color: #1e8f76;
+}
+
+.metricNegative {
+  color: #e05a4d;
+}
+
+.chartCard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.45rem;
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.simulationSection {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.simulationCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.viewTabs {
+  display: inline-flex;
+  align-self: flex-start;
+  background: rgba(242, 246, 252, 0.92);
+  border-radius: 999px;
+  padding: 6px;
+  border: 1px solid rgba(58, 123, 213, 0.2);
+  box-shadow: 0 12px 22px rgba(30, 77, 143, 0.12);
+  gap: 6px;
+}
+
+.viewTab {
+  border: none;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.viewTab:hover {
+  color: var(--foreground);
+}
+
+.activeViewTab {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-accent) 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 22px rgba(30, 77, 143, 0.2);
+}
+
+.stateCard {
+  text-align: center;
+  padding: 44px 24px;
+  border-radius: 18px;
+  background: rgba(242, 246, 252, 0.92);
+  border: 1px dashed rgba(58, 123, 213, 0.3);
+  color: var(--muted-text);
+}
+
+.stateIcon {
+  font-size: 2.6rem;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 24px;
+  border-radius: 18px;
+  border: 1px dashed rgba(58, 123, 213, 0.28);
+  background: rgba(242, 246, 252, 0.92);
+  color: var(--muted-text);
+}
+
+.emptyIcon {
+  font-size: 2.6rem;
+  margin-bottom: 10px;
+}
+
+.emptyTitle {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin-bottom: 10px;
+}
+
+.emptyNote {
+  margin-top: 10px;
+  font-size: 0.95rem;
+  color: var(--muted-text);
+}
+
+@media (max-width: 768px) {
+  .heroCard,
+  .chartCard,
+  .simulationCard {
+    padding: 26px 22px;
+  }
+
+  .heroTitle {
+    font-size: 1.9rem;
+  }
+
+  .metricPill {
+    flex: 1 1 100%;
+  }
+}

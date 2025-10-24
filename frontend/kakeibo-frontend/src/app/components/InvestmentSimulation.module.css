@@ -1,0 +1,124 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+}
+
+.stateCard {
+  text-align: center;
+  padding: 48px 24px;
+  background: rgba(242, 246, 252, 0.9);
+  border-radius: 18px;
+  border: 1px dashed rgba(58, 123, 213, 0.3);
+  color: var(--muted-text);
+}
+
+.stateIcon {
+  font-size: 2.4rem;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+.metricCard {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 14px 28px rgba(30, 77, 143, 0.08);
+  border: 1px solid rgba(58, 123, 213, 0.12);
+}
+
+.metricLabel {
+  font-size: 0.9rem;
+  color: var(--muted-text);
+  margin-bottom: 6px;
+}
+
+.metricValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.metricPositive {
+  color: #1e8f76;
+}
+
+.metricNegative {
+  color: #e05a4d;
+}
+
+.metricPercent {
+  font-size: 1.4rem;
+}
+
+.chartCard {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 22px;
+  padding: 16px 20px;
+  box-shadow: 0 18px 32px rgba(30, 77, 143, 0.1);
+  border: 1px solid rgba(58, 123, 213, 0.12);
+  height: 460px;
+}
+
+.detailCard {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  padding: 22px 24px;
+  border: 1px solid rgba(58, 123, 213, 0.12);
+  box-shadow: 0 16px 28px rgba(30, 77, 143, 0.08);
+}
+
+.detailTitle {
+  margin: 0 0 16px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.detailItem {
+  background: rgba(242, 246, 252, 0.8);
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid rgba(58, 123, 213, 0.16);
+}
+
+.detailLabel {
+  font-size: 0.85rem;
+  color: var(--muted-text);
+  margin-bottom: 6px;
+}
+
+.detailValue {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.detailAccent {
+  color: #1e8f76;
+}
+
+@media (max-width: 768px) {
+  .chartCard {
+    height: 400px;
+  }
+}

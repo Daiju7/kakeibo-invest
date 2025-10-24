@@ -1,0 +1,186 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.stateCard {
+  text-align: center;
+  padding: 48px 24px;
+  background: rgba(242, 246, 252, 0.9);
+  border-radius: 18px;
+  border: 1px dashed rgba(58, 123, 213, 0.3);
+  color: var(--muted-text);
+}
+
+.stateIcon {
+  font-size: 2.4rem;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.controlCard {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 22px;
+  padding: 28px 32px;
+  box-shadow: 0 18px 35px rgba(30, 77, 143, 0.08);
+  border: 1px solid rgba(58, 123, 213, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--foreground);
+  text-align: left;
+}
+
+.toggleGroup {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(242, 246, 252, 0.9);
+  border: 1px solid rgba(58, 123, 213, 0.16);
+  gap: 6px;
+}
+
+.toggleButton {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  color: var(--muted-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggleButton:hover {
+  color: var(--foreground);
+}
+
+.activeToggle {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-accent) 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 22px rgba(30, 77, 143, 0.2);
+}
+
+.sliderGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sliderLabel {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.sliderAnnotation {
+  font-size: 0.85rem;
+  color: var(--muted-text);
+  margin-left: 8px;
+}
+
+.range {
+  width: 100%;
+  appearance: none;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(58, 123, 213, 0.18);
+  outline: none;
+}
+
+.range::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-accent) 100%);
+  box-shadow: 0 10px 18px rgba(30, 77, 143, 0.25);
+  cursor: pointer;
+  border: 2px solid #ffffff;
+}
+
+.range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-accent) 100%);
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  box-shadow: 0 10px 18px rgba(30, 77, 143, 0.25);
+}
+
+.range::-webkit-slider-runnable-track,
+.range::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+}
+
+.sliderScale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted-text);
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.metricCard {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 18px;
+  border: 1px solid rgba(58, 123, 213, 0.12);
+  padding: 18px 20px;
+  box-shadow: 0 12px 24px rgba(30, 77, 143, 0.08);
+}
+
+.metricLabel {
+  font-size: 0.9rem;
+  color: var(--muted-text);
+  margin-bottom: 6px;
+}
+
+.metricValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.metricPositive {
+  color: #1e8f76;
+}
+
+.metricNegative {
+  color: #e05a4d;
+}
+
+.chartCard {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 22px;
+  padding: 16px 20px;
+  border: 1px solid rgba(58, 123, 213, 0.12);
+  box-shadow: 0 18px 32px rgba(30, 77, 143, 0.1);
+  height: 420px;
+}
+
+@media (max-width: 768px) {
+  .controlCard {
+    padding: 24px 22px;
+  }
+
+  .chartCard {
+    height: 360px;
+  }
+}

@@ -1,11 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import styles from './page.module.css';
 import CycleChart from "./components/Cycle-Chart";
 
 export default function Page() {
   const [data, setData] = useState([]); //データベース状態管理
   const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
   
   //データ取得 　useEffectはコンポーネントのライフサイクルに基づいて副作用を実行するためのフック コンポーネントがマウント（初回レンダリング）されたときにfetchData関数を実行してデータを取得する
   useEffect(() => {
@@ -57,6 +59,16 @@ export default function Page() {
   // 金額の合計を計算
   const totalAmount = data.reduce((sum, item) => sum + parseInt(item.amount), 0);
 
+  //表示制御ロジック
+  //一覧表示の最大件数を定義し、全件表示の切り替えを管理
+  const MAX_VISIBLE_ITEMS = 2;
+  const hasMoreExpenses = data.length > MAX_VISIBLE_ITEMS;
+  //useMemoは、計算コストの高い関数の結果をメモ化（キャッシュ）して、依存関係が変わらない限り再計算を避けるためのフック
+  const displayedExpenses = useMemo(
+    () => (showAllExpenses ? data : data.slice(0, MAX_VISIBLE_ITEMS)),
+    [data, showAllExpenses]
+  );
+
   //カテゴリのラベルを定義
   const categoryLabels = {
     food: "🍽️ 食費",
@@ -88,19 +100,19 @@ export default function Page() {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.wrapper}>
-        {/* ヘッダー */}
-        <div className={styles.header}>
-          <h1 className={styles.title}>🏠 家計簿アプリ</h1>
-          <p className={styles.subtitle}>毎日の収支を簡単管理</p>
-          
-          {/* 合計金額表示 */}
-          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
-            📊 合計: ¥{totalAmount.toLocaleString()}
+    <div className={styles.page}>
+      <section className={styles.overviewGrid}>
+        <article className={styles.summaryCard}>
+          <div>
+            <h1 className={styles.title}>🏠 家計簿アプリ</h1>
+            <p className={styles.subtitle}>日常の支出と投資の可能性をひと目で把握</p>
           </div>
-          
-          {/* カテゴリー別合計表示 */}
+
+          <div className={`${styles.totalAmount} ${totalAmount >= 0 ? styles.totalPositive : styles.totalNegative}`}>
+            <span>📊 合計</span>
+            <span>¥{totalAmount.toLocaleString()}</span>
+          </div>
+
           <div className={styles.categoryTotals}>
             <div className={styles.categoryTotalItem}>
               <span className={styles.categoryIcon}>🍽️</span>
@@ -133,29 +145,25 @@ export default function Page() {
               <span className={styles.categoryAmount}>¥{getCategoryTotal("other").toLocaleString()}</span>
             </div>
           </div>
-        </div>
+        </article>
 
-        {/* グラフセクション */}
-        <div className={styles.chartSection}>
+        <article className={styles.chartCard}>
           <h2 className={styles.chartTitle}>📈 カテゴリー別支出割合</h2>
           <CycleChart data={data} />
-        </div>
+        </article>
+      </section>
 
-        {/* フォーム */}
-        <div className={styles.formSection}>
+      <section className={styles.detailsGrid}>
+        <article className={styles.formCard}>
           <h2 className={styles.formTitle}>✏️ 新しい記録を追加</h2>
-          
           <form
             onSubmit={(e) => {
-              e.preventDefault(); // ページリロード防止
-              console.log(form);  // 今のフォームの内容を確認
-              submitForm();      // フォーム送信関数を実行
-              //フォームの中をリセット
+              e.preventDefault();
+              submitForm();
               setForm({ title: "", amount: "", date: "", category: "" });
             }}
             className={styles.form}
           >
-            {/* カテゴリ選択 */}
             <div className={styles.inputGroup}>
               <label className={styles.label}>📂 カテゴリ</label>
               <select
@@ -180,14 +188,12 @@ export default function Page() {
                 type="text"
                 placeholder="例: ランチ代"
                 value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })} 
-                //...はスプレッド構文、formの中身を全部展開して、その後titleだけ新しい値に更新。展開とは、オブジェクトや配列の中身を個別の要素に分解すること。
-                // e.target.valueは入力された値で、フォームの中身を更新するために使用される。
-                required //「空欄では送信できない」ようにする簡易バリデーション
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                required
                 className={styles.input}
               />
             </div>
-            
+
             <div className={styles.inputGroup}>
               <label className={styles.label}>💰 金額</label>
               <input
@@ -199,7 +205,7 @@ export default function Page() {
                 className={styles.input}
               />
             </div>
-            
+
             <div className={styles.inputGroup}>
               <label className={styles.label}>📅 日付</label>
               <input
@@ -210,64 +216,65 @@ export default function Page() {
                 className={styles.input}
               />
             </div>
-            
+
             <button type="submit" className={styles.submitButton}>
               ➕ 追加
             </button>
           </form>
-        </div>
+        </article>
 
-        {/* データ一覧 */}
-        <div className={styles.dataSection}>
+        <article className={styles.tableCard}>
           <h2 className={styles.dataTitle}>📋 支出一覧</h2>
-          
           {data.length === 0 ? (
-            //条件式 ? Trueの処理 : Falseの処理
             <div className={styles.emptyState}>
               <div className={styles.emptyIcon}>📝</div>
               <p className={styles.emptyText}>まだデータがありません</p>
-              <p className={styles.emptySubtext}>上のフォームから新しい記録を追加しましょう！</p>
+              <p className={styles.emptySubtext}>左のフォームから新しい記録を追加してみましょう</p>
             </div>
           ) : (
             <div className={styles.dataList}>
-              {data.map((item) => (
-                <div key={item.id} className={styles.dataItem}>   {/*React の重要な属性 で、リスト要素をレンダリングする際に各要素を一意に識別するために使用される*/}
+              {displayedExpenses.map((item) => (
+                <div key={item.id} className={styles.dataItem}>
                   <div className={styles.itemContent}>
-                    <div className={styles.itemTitle}>
-                      🏷️ {item.title}
-                    </div>
+                    <div className={styles.itemTitle}>🏷️ {item.title}</div>
                     <div className={`${styles.itemCategory} ${getCategoryClass(item.category)}`}>
                       {categoryLabels[item.category]}
                     </div>
                     <div className={styles.itemDetails}>
-                      <span className={`${styles.itemAmount} ${parseInt(item.amount) >= 0 ? styles.amountPositive : styles.amountNegative}`}> {/*parseIntは文字列を整数に変換する関数*/}
+                      <span className={`${styles.itemAmount} ${parseInt(item.amount) >= 0 ? styles.amountPositive : styles.amountNegative}`}>
                         💰 ¥{parseInt(item.amount).toLocaleString()}
                       </span>
                       <span>📅 {item.date}</span>
                     </div>
                   </div>
-                  
-                  {/*削除ボタンの追加*/}
-                  <button 
-                    onClick={() => deleteItem(item.id)} 
-                    className={styles.deleteButton}
-                  >
+                  <button onClick={() => deleteItem(item.id)} className={styles.deleteButton}>
                     🗑️ 削除
                   </button>
                 </div>
               ))}
             </div>
           )}
-        </div>
-        {/* invest.jsへのリンク追加 */} 
-        <div className={styles.investLinkSection}>
-          <a href="/invest" className={styles.investLink}>
-            💹 投資情報を見る
-          </a>
-        </div>
-        
-      </div>
+          {hasMoreExpenses && (
+            <button
+              type="button"
+              className={styles.collapseButton}
+              onClick={() => setShowAllExpenses((prev) => !prev)}
+            >
+              {showAllExpenses ? "一覧を閉じる" : `全${data.length}件を表示`}
+            </button>
+          )}
+        </article>
+      </section>
+
+      <section className={styles.linksRow}>
+        <Link href="/invest" className={styles.linkTile}>
+          <div className={styles.linkIcon}>💹</div>
+          <div className={styles.linkContent}>
+            <h3>投資シミュレーションへ</h3>
+            <p>S&P500の株価データを使って、家計簿と投資を組み合わせた分析を体験しましょう。</p>
+          </div>
+        </Link>
+      </section>
     </div>
   );
 }
-

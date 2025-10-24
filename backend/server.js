@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 /**
  * 🏠💰 Backend Server - Express.js + MySQL家計簿サーバー
  * 
@@ -21,17 +23,34 @@
  */
 
 // 【依存関係のインポート】
+// ファイル操作用のモジュールを読み込み
+
+const fs = require('fs');
+const path = require('path');
+// ミドルウェアの上の方にこれを追加
+const logPath = path.join(__dirname, 'requests.log');
+
 const express = require('express');   // Web フレームワーク
 const mysql = require('mysql2');      // MySQL データベースドライバー
 const app = express();               // Express アプリケーションインスタンス
 const cors = require('cors');        // Cross-Origin Resource Sharing
+const fetch = require('node-fetch');  // HTTP requests for Alpha Vantage API
+require('dotenv').config();          // 環境変数の読み込み
 const PORT = 3000;                   // サーバーポート番号
+
 
 // 【ミドルウェアの設定】
 app.use(express.json()); // JSON形式のリクエストボディを解析
 // CORS設定 - フロントエンド(port 3001)からのアクセスを許可
 // Same-Origin Policyによる制限を回避し、異なるポート間の通信を可能にする
 app.use(cors());
+
+// ミドルウェア内で使用
+app.use((req, res, next) => {
+    const log = `${new Date().toISOString()} ${req.method} ${req.url}\n`;
+    fs.appendFileSync(logPath, log);
+    next();
+});
 
 // 【MySQL データベース接続設定】
 const connection = mysql.createConnection({
@@ -167,6 +186,86 @@ app.get('/expenses/investment', (req, res) => {
     );
 });
 
+// ========================================
+// 【ALPHA VANTAGE API キャッシュ機能】
+// ========================================
 
+/**
+ * Alpha Vantage APIキャッシュ付き株価データ取得
+ * エンドポイント: GET /api/stock-cached/:symbol
+ * 用途: Alpha Vantage API制限回避のため、MySQLキャッシュを使用
+ */
+app.get('/api/stock-cached/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    const CACHE_EXPIRY_HOURS = 24;
+    
+    try {
+        // キャッシュから最新データを確認
+        const cachedData = await new Promise((resolve, reject) => {
+            connection.query(`
+                SELECT data, fetched_at 
+                FROM stock_cache 
+                WHERE symbol = ? 
+                AND fetched_at > DATE_SUB(NOW(), INTERVAL ? HOUR)
+                ORDER BY fetched_at DESC 
+                LIMIT 1
+            `, [symbol, CACHE_EXPIRY_HOURS], (error, results) => {
+                if (error) reject(error);
+                else resolve(results[0] || null);
+            });
+        });
 
+        // キャッシュヒット時
+        if (cachedData) {
+            console.log(`📦 Cache hit for ${symbol}`);
+            return res.json({
+                data: cachedData.data,
+                cached: true,
+                fetchedAt: cachedData.fetched_at
+            });
+        }
 
+        // キャッシュミス時: Alpha Vantage APIから実データを取得
+        console.log(`🌐 Cache miss for ${symbol}, fetching from Alpha Vantage API`);
+        
+        const apiKey = process.env.ALPHAVANTAGE_API_KEY;
+        if (!apiKey) {
+            throw new Error('Alpha Vantage API key not found in environment variables');
+        }
+
+        // Alpha Vantage APIから月次データを取得
+        const apiUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=${symbol}&apikey=${apiKey}`;
+        console.log(`📡 Fetching from Alpha Vantage: ${symbol}`);
+        
+        const response = await fetch(apiUrl);
+        const apiData = await response.json();
+        
+        // APIエラーチェック
+        if (apiData['Error Message'] || apiData['Note']) {
+            console.error('Alpha Vantage API error:', apiData);
+            throw new Error(apiData['Error Message'] || apiData['Note'] || 'API limit reached');
+        }
+
+        // APIから取得したデータをキャッシュに保存
+        await new Promise((resolve, reject) => {
+            connection.query(`
+                INSERT INTO stock_cache (symbol, data) 
+                VALUES (?, ?)
+            `, [symbol, JSON.stringify(apiData)], (error) => {
+                if (error) reject(error);
+                else resolve();
+            });
+        });
+
+        console.log(`💾 Saved real data for ${symbol} to cache`);
+        res.json({
+            data: apiData,
+            cached: false,
+            realData: true
+        });
+
+    } catch (error) {
+        console.error('Cache error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
