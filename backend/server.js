@@ -37,10 +37,12 @@ const cors = require('cors');        // Cross-Origin Resource Sharing
 const fetch = require('node-fetch');  // HTTP requests for Alpha Vantage API
 require('dotenv').config();          // 環境変数の読み込み
 const PORT = 3000;                   // サーバーポート番号
-
+const bycript = require('bcrypt');    // パスワードハッシュ化ライブラリ
+const SALT_ROUNDS = 10;            // bcryptのソルトラウンド数 ラウンドとは、ハッシュ化の計算コストを示す。数値が大きいほどセキュリティは高まるが、処理時間も増加する
 
 // 【ミドルウェアの設定】
 app.use(express.json()); // JSON形式のリクエストボディを解析
+
 // CORS設定 - フロントエンド(port 3001)からのアクセスを許可
 // Same-Origin Policyによる制限を回避し、異なるポート間の通信を可能にする
 app.use(cors());
@@ -268,4 +270,34 @@ app.get('/api/stock-cached/:symbol', async (req, res) => {
         console.error('Cache error:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+
+// ========================================
+// 【認証API 入力値の検証】
+// ========================================
+
+app.post('/api/auth/register', (req, res) => {
+    const { email, password, name } = req.body || {};
+
+    // 入力値の基本的な検証 - メールアドレスとパスワードの存在チェック
+    if (!email || typeof email !== 'string' || email.trim() === '') {
+        return res.status(400).json({ error: 'メールアドレスは必須です。' });
+    }
+
+    if (!password || typeof password !== 'string' || password.trim() === '') {
+        return res.status(400).json({ error: 'パスワードは必須です。' });
+    }
+
+    // トリム処理 - 余分な空白を削除 ユーザーが誤って空白を入力してしまうことを防ぐため
+    req.body.email = email.trim();
+    req.body.password = password.trim();
+
+    // 名前の場合もトリム処理
+    if (typeof name === 'string') {
+        req.body.name = name.trim();
+    }
+
+    // 仮のレスポンス - 実際の登録処理は未実装
+    return res.status(501).json({ message: '登録処理は順次実装予定です。' });
 });
