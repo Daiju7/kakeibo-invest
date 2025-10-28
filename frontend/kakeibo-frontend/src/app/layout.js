@@ -29,6 +29,8 @@ export default function RootLayout({ children }) {
             <nav className="navLinks">
               <Link href="/" className="navLink">家計簿</Link>
               <Link href="/invest" className="navLink">投資シミュレーション</Link>
+              <Link href="/register" className="navLink">新規登録</Link>
+              <Link href="/login" className="navLink">ログイン</Link>
             </nav>
           </header>
           <main className="appContent">

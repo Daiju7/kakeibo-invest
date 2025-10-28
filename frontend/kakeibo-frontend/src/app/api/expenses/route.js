@@ -37,15 +37,27 @@ export async function GET(request) {
         const backendUrl = "http://localhost:3000/expenses";
         
         console.log("Fetching expenses from backend:", backendUrl);
+        const cookie = request.headers.get("cookie");
         
         // 【STEP 2】バックエンドから全ての家計簿データを取得
         // server.jsの GET /expenses エンドポイントを呼び出し
-        const response = await fetch(backendUrl);
+        const response = await fetch(backendUrl, {
+            headers: cookie ? { Cookie: cookie } : {}
+        });
         
         // 【STEP 3】レスポンスステータスの確認
         //!response.okとは、HTTPレスポンスが正常かどうかを示すプロパティ。
         if (!response.ok) {
-            throw new Error(`Backend server error: ${response.status}`); //response.statusはHTTPステータスコードを取得。statusはどこで定義されているかというと、ExpressのResponseオブジェクトに組み込まれている
+            let payload;
+            try {
+                payload = await response.json();
+            } catch (parseError) {
+                payload = { error: "Backend server error" };
+            }
+            return new Response(JSON.stringify(payload), {
+                status: response.status,
+                headers: { "Content-Type": "application/json" }
+            });
         }
         
         // 【STEP 4】JSONデータの解析

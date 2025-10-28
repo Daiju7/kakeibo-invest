@@ -18,31 +18,44 @@ export default function Invest() {
 
         const fetchData = async () => {
             try {
+                console.log("🔄 Starting data fetch...");
                 const [stockRes, expenseRes] = await Promise.all([
                     fetch("/api/stock"),
                     fetch("/api/expenses")
                 ]);
 
+                console.log("📊 Stock API response status:", stockRes.status);
+                console.log("💰 Expense API response status:", expenseRes.status);
+
                 if (!stockRes.ok) {
-                    throw new Error(`Stock API error! status: ${stockRes.status}`);
+                    const errorText = await stockRes.text();
+                    console.error("❌ Stock API error details:", errorText);
+                    throw new Error(`Stock API error! status: ${stockRes.status}, details: ${errorText}`);
                 }
 
                 const stockJson = await stockRes.json();
+                console.log("📈 Stock data received:", stockJson ? "✅ Success" : "❌ Empty");
 
                 if (stockJson.error) {
+                    console.error("❌ Stock data contains error:", stockJson.error);
                     throw new Error(stockJson.message || stockJson.error);
                 }
 
                 setStockData(stockJson);
 
-                if (expenseRes.ok) {
+                if (expenseRes.status === 401) {
+                    console.warn("⚠️ Expense API requires login");
+                    setExpenseData(null);
+                } else if (expenseRes.ok) {
                     const expenseJson = await expenseRes.json();
+                    console.log("💾 Expense data received:", expenseJson ? "✅ Success" : "❌ Empty");
                     setExpenseData(expenseJson);
                 } else {
-                    console.warn("Expense API error:", expenseRes.status);
+                    console.warn("⚠️ Expense API error:", expenseRes.status);
                 }
             } catch (err) {
-                console.error("Error loading data:", err);
+                console.error("🚨 Error loading data:", err);
+                console.error("🔍 Error details:", err.message);
                 setStockData({ error: err.message });
             } finally {
                 setIsLoading(false);
@@ -143,7 +156,7 @@ export default function Invest() {
                     className={`${styles.viewTab} ${activeView === "monitor" ? styles.activeViewTab : ""}`}
                     onClick={() => setActiveView("monitor")}
                 >
-                    📈 モニター
+                    📈 基準価額
                 </button>
                 <button
                     type="button"
@@ -165,10 +178,8 @@ export default function Invest() {
                 <>
                     <section className={styles.heroCard}>
                         <div className={styles.heroHeader}>
-                            <h1 className={styles.heroTitle}>📈 {symbol} モニター</h1>
-                            <p className={styles.heroSubtitle}>
-                                Alpha Vantage の月次データをキャッシュし、直近の動きをコンパクトに整理しました。
-                            </p>
+                            <h1 className={styles.heroTitle}>📈 S&P500 基準価額</h1>
+                            <p className={styles.heroSubtitle}></p>
                         </div>
                         <div className={styles.heroMetrics}>
                             <div className={styles.metricPill}>

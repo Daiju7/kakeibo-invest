@@ -8,6 +8,25 @@
   margin: 0 auto;
 }
 
+.authError {
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(224, 90, 77, 0.12);
+  border: 1px solid rgba(224, 90, 77, 0.3);
+  color: #c24339;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-weight: 600;
+}
+
+.authLink {
+  color: var(--primary);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 .overviewGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
@@ -24,7 +43,7 @@
   padding: 32px 36px;
   box-shadow: var(--shadow-soft);
   border: 1px solid var(--surface-border);
-  backdrop-filter: blur(12px);
+  
 }
 
 .summaryCard {

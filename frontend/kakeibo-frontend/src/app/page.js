@@ -8,6 +8,7 @@ export default function Page() {
   const [data, setData] = useState([]); //データベース状態管理
   const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
   const [showAllExpenses, setShowAllExpenses] = useState(false);
+  const [authError, setAuthError] = useState(null);
   
   //データ取得 　useEffectはコンポーネントのライフサイクルに基づいて副作用を実行するためのフック コンポーネントがマウント（初回レンダリング）されたときにfetchData関数を実行してデータを取得する
   useEffect(() => {
@@ -17,12 +18,23 @@ export default function Page() {
   //データ取得関数 （データ取得初回ロード時だけでなく、データ追加・削除後にも実行したいため、非同期処理にする）
   const fetchData = async() => {
     try {
-      const response = await fetch("http://localhost:3000/api/kakeibo");
+      const response = await fetch("http://localhost:3000/api/kakeibo", {
+        credentials: "include"
+      });
+
+      if (response.status === 401) {
+        setAuthError("家計簿データを見るにはログインが必要です。");
+        setData([]);
+        return;
+      }
+
       const result = await response.json();
       setData(result);
+      setAuthError(null);
       console.log('取得できた');
     } catch (error) {
       console.log('Error fetching data:', error);
+      setAuthError("家計簿データの取得に失敗しました。");
     }
   }
 
@@ -32,13 +44,22 @@ export default function Page() {
       const response = await fetch("http://localhost:3000/api/kakeibo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(form)
       });
+
+      if (response.status === 401) {
+        setAuthError("支出を追加するにはログインが必要です。");
+        return;
+      }
+
       const result = await response.json();
       console.log(result);
+      setAuthError(null);
       fetchData(); //データ再取得
     } catch (error) {
     console.log('Error submitting form:', error);
+    setAuthError("家計簿データの追加に失敗しました。");
     }
   }
 
@@ -46,13 +67,22 @@ export default function Page() {
   const deleteItem = async(id) => {
     try{
       const response = await fetch(`http://localhost:3000/api/kakeibo/${id}`, {
-        method:"DELETE"
+        method:"DELETE",
+        credentials: "include"
       });
+
+      if (response.status === 401) {
+        setAuthError("支出を削除するにはログインが必要です。");
+        return;
+      }
+
       const result = await response.json();
       console.log(result);
+      setAuthError(null);
       fetchData(); //データ再取得
     } catch (error) {
       console.log('Error deleting item:', error);
+      setAuthError("家計簿データの削除に失敗しました。");
     }
   }
 
@@ -101,6 +131,12 @@ export default function Page() {
 
   return (
     <div className={styles.page}>
+      {authError && (
+        <div className={styles.authError}>
+          <p>{authError}</p>
+          <Link href="/login" className={styles.authLink}>ログインページへ</Link>
+        </div>
+      )}
       <section className={styles.overviewGrid}>
         <article className={styles.summaryCard}>
           <div>

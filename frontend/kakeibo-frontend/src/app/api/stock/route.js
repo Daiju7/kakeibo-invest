@@ -24,14 +24,23 @@ export async function GET(request) {
     
     try {
         // 【STEP 1】バックエンドのキャッシュAPIを呼び出し
-        console.log("Fetching stock data with cache for:", symbol);
+        console.log("🔄 Fetching stock data with cache for:", symbol);
         const backendUrl = `http://localhost:3000/api/stock-cached/${symbol}`;
-        const response = await fetch(backendUrl);
+        console.log("📡 Backend URL:", backendUrl);
+        const cookie = request.headers.get("cookie");
+        
+        const response = await fetch(backendUrl, {
+            headers: cookie ? { Cookie: cookie } : {}
+        });
+        console.log("📊 Backend response status:", response.status);
+        console.log("📊 Backend response ok:", response.ok);
+        
         const result = await response.json();
+        console.log("📄 Backend response data keys:", Object.keys(result));
 
         // 【STEP 2】バックエンドからのレスポンスチェック
         if (!response.ok) {
-            console.error("Backend cache API error:", result.error);
+            console.error("❌ Backend cache API error:", result.error);
             return new Response(JSON.stringify({ 
                 error: result.error,
                 message: result.message
@@ -48,12 +57,13 @@ export async function GET(request) {
             console.log(`🧪 Using fresh data for ${symbol} (test mode: ${result.testMode || false})`);
         }
 
+        console.log("✅ Returning data to frontend");
         // result.dataにAlpha Vantage形式のデータが含まれている
         return Response.json(result.data);
         
     } catch (error) {
         // 【STEP 5】予期しないエラーのハンドリング
-        console.error("Error fetching stock data via cache:", error);
+        console.error("🚨 Error fetching stock data via cache:", error);
         return new Response(JSON.stringify({ 
             error: "Failed to fetch stock data",
             message: error.message
