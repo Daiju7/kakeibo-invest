@@ -66,6 +66,10 @@ export async function GET(request) {
         // MySQL kakeibo_dataテーブルの全レコードを取得
         // データ構造: [{ id, title, category, amount, date }, ...]
         const allExpenses = await response.json();
+
+        if (!Array.isArray(allExpenses)) {
+            throw new Error(allExpenses?.error || 'Unexpected expenses payload');
+        }
         
         // 【STEP 5】投資カテゴリーのデータのみを抽出
         // カテゴリーが 'investment' のレコードのみフィルタリング

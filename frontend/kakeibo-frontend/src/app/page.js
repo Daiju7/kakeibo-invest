@@ -31,6 +31,13 @@ export default function Page() {
       }
 
       const result = await response.json();
+
+      if (!Array.isArray(result)) {
+        setData([]);
+        setAuthError(result?.error ?? '家計簿データの取得に失敗しました。');
+        return;
+      }
+
       setData(result);
       setAuthError(null);
       console.log('取得できた');
@@ -56,6 +63,12 @@ export default function Page() {
       }
 
       const result = await response.json();
+
+      if (!response.ok) {
+        setAuthError(result?.error ?? '家計簿データの追加に失敗しました。');
+        return;
+      }
+
       console.log(result);
       setAuthError(null);
       fetchData(); //データ再取得
@@ -79,6 +92,12 @@ export default function Page() {
       }
 
       const result = await response.json();
+
+      if (!response.ok) {
+        setAuthError(result?.error ?? '家計簿データの削除に失敗しました。');
+        return;
+      }
+
       console.log(result);
       setAuthError(null);
       fetchData(); //データ再取得
