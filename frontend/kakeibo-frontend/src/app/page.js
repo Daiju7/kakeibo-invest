@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import styles from './page.module.css';
 import CycleChart from "./components/Cycle-Chart";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+
 export default function Page() {
   const [data, setData] = useState([]); //データベース状態管理
   const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
@@ -18,7 +20,7 @@ export default function Page() {
   //データ取得関数 （データ取得初回ロード時だけでなく、データ追加・削除後にも実行したいため、非同期処理にする）
   const fetchData = async() => {
     try {
-      const response = await fetch("https://kakeibo-backend-7c1q.onrender.com/api/kakeibo", {
+      const response = await fetch(`${API_BASE}/api/kakeibo`, {
         credentials: "include"
       });
 
@@ -41,7 +43,7 @@ export default function Page() {
   //フォーム送信関数
   const submitForm = async() => {
     try {
-      const response = await fetch("https://kakeibo-backend-7c1q.onrender.com/api/kakeibo", {
+      const response = await fetch(`${API_BASE}/api/kakeibo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -66,7 +68,7 @@ export default function Page() {
   //削除関数
   const deleteItem = async(id) => {
     try{
-      const response = await fetch(`https://kakeibo-backend-7c1q.onrender.com/api/kakeibo/${id}`, {
+      const response = await fetch(`${API_BASE}/api/kakeibo/${id}`, {
         method:"DELETE",
         credentials: "include"
       });

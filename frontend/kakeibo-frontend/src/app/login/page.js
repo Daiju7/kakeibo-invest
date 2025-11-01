@@ -3,6 +3,8 @@
 import { useState } from "react";
 import styles from "./page.module.css";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+
 export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [status, setStatus] = useState({ type: "idle", message: "" });
@@ -19,7 +21,7 @@ export default function LoginPage() {
     setUserInfo(null);
 
     try {
-      const response = await fetch("https://kakeibo-backend-7c1q.onrender.com/api/auth/login", {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

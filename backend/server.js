@@ -78,6 +78,21 @@ app.use((req, res, next) => {
     next();
 });
 
+// セッション管理設定
+app.use(session({
+    name: 'kakeibo.sid',
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: true,          // 本番では true
+        sameSite: 'none',      // ← ここ重要！異なるドメイン間でCookie共有可能に
+        maxAge: 1000 * 60 * 60 * 24
+    }
+}));
+
+
 // ----------------------------------------
 // 【APIエンドポイント定義】
 // ----------------------------------------

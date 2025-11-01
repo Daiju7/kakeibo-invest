@@ -28,13 +28,15 @@
  * - 実際の投資履歴ベースでのパフォーマンス計算
  */
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+
 // バックエンドから投資支出を取得するNext.js APIルート
 // GETリクエストを処理する関数をエクスポート
 export async function GET(request) {
     try {
         // 【STEP 1】バックエンドサーバーの設定
         // Express.jsサーバー (port 3000) の家計簿データエンドポイント
-        const backendUrl = "https://kakeibo-backend-7c1q.onrender.com/expenses";
+        const backendUrl = `${API_BASE}/expenses`;
         
         console.log("Fetching expenses from backend:", backendUrl);
         const cookie = request.headers.get("cookie");

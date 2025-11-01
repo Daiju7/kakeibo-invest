@@ -17,6 +17,8 @@
  * - 家計簿連携投資シミュレーションでの成果計算
  */
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+
 // Next.js App Router API Route
 // GETリクエストを処理する関数をエクスポート
 export async function GET(request) {
@@ -25,7 +27,7 @@ export async function GET(request) {
     try {
         // 【STEP 1】バックエンドのキャッシュAPIを呼び出し
         console.log("🔄 Fetching stock data with cache for:", symbol);
-        const backendUrl = `https://kakeibo-backend-7c1q.onrender.com/api/stock-cached/${symbol}`;
+        const backendUrl = `${API_BASE}/api/stock-cached/${symbol}`;
         console.log("📡 Backend URL:", backendUrl);
         const cookie = request.headers.get("cookie");
         
