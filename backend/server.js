@@ -50,7 +50,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 app.use(session({
     name: 'kakeibo.sid',
