@@ -62,9 +62,13 @@ pool.connect()
 // ----------------------------------------
 app.use(express.json());
 app.use(cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:3001",
+    origin: [
+        'http://localhost:3001',                // ローカル開発用
+        'https://kakeibo-invest.vercel.app/' // ← VercelフロントURL
+    ],
     credentials: true
 }));
+
 
 // リクエストログ記録
 const logPath = path.join(__dirname, "requests.log");
