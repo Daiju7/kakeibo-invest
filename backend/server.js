@@ -44,16 +44,20 @@ const allowedOrigins = [
     process.env.CLIENT_ORIGIN
 ].filter(Boolean);
 
-app.use(cors({
+const corsOptions = {
     origin: allowedOrigins,
     credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(session({
     name: 'kakeibo.sid',
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
