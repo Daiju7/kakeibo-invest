@@ -3,7 +3,7 @@ services:
     name: kakeibo-backend
     env: node
     plan: free
-    region: tokyo  
+    region: singapore  
     buildCommand: cd backend && npm install
     startCommand: cd backend && node server.js
     envVars:
@@ -18,3 +18,4 @@ services:
       - key: ALPHA_VANTAGE_API_KEY
         sync: false  # Renderのダッシュボードで手動設定するため
 
+  
