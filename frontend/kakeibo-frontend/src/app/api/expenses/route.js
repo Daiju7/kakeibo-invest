@@ -34,7 +34,7 @@ export async function GET(request) {
     try {
         // 【STEP 1】バックエンドサーバーの設定
         // Express.jsサーバー (port 3000) の家計簿データエンドポイント
-        const backendUrl = "http://localhost:3000/expenses";
+        const backendUrl = "https://kakeibo-backend-7c1q.onrender.com/expenses";
         
         console.log("Fetching expenses from backend:", backendUrl);
         const cookie = request.headers.get("cookie");

@@ -18,7 +18,7 @@ export default function Page() {
   //データ取得関数 （データ取得初回ロード時だけでなく、データ追加・削除後にも実行したいため、非同期処理にする）
   const fetchData = async() => {
     try {
-      const response = await fetch("http://localhost:3000/api/kakeibo", {
+      const response = await fetch("https://kakeibo-backend-7c1q.onrender.com/api/kakeibo", {
         credentials: "include"
       });
 
@@ -41,7 +41,7 @@ export default function Page() {
   //フォーム送信関数
   const submitForm = async() => {
     try {
-      const response = await fetch("http://localhost:3000/api/kakeibo", {
+      const response = await fetch("https://kakeibo-backend-7c1q.onrender.com/api/kakeibo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -66,7 +66,7 @@ export default function Page() {
   //削除関数
   const deleteItem = async(id) => {
     try{
-      const response = await fetch(`http://localhost:3000/api/kakeibo/${id}`, {
+      const response = await fetch(`https://kakeibo-backend-7c1q.onrender.com/api/kakeibo/${id}`, {
         method:"DELETE",
         credentials: "include"
       });

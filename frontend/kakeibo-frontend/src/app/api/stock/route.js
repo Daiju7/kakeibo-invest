@@ -25,7 +25,7 @@ export async function GET(request) {
     try {
         // 【STEP 1】バックエンドのキャッシュAPIを呼び出し
         console.log("🔄 Fetching stock data with cache for:", symbol);
-        const backendUrl = `http://localhost:3000/api/stock-cached/${symbol}`;
+        const backendUrl = `https://kakeibo-backend-7c1q.onrender.com/api/stock-cached/${symbol}`;
         console.log("📡 Backend URL:", backendUrl);
         const cookie = request.headers.get("cookie");
         
