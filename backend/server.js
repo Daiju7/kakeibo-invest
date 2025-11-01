@@ -30,6 +30,7 @@ const cors = require("cors");
 const fetch = require("node-fetch"); // Alpha Vantage API 用HTTPクライアント
 require("dotenv").config();          // 環境変数の読み込み
 const PORT = process.env.PORT || 3000;
+const session = require("express-session");
 
 // ----------------------------------------
 // 【PostgreSQL 接続設定】Render対応
