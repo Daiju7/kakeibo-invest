@@ -1,132 +1,102 @@
-/**
- * 🏠💰 Backend Server - Express.js + PostgreSQL 家計簿サーバー
- * 
- * 【ファイルの役割】
- * - 家計簿データのCRUD操作（作成・読み取り・削除）
- * - PostgreSQL データベースとの接続管理（Render対応）
- * - フロントエンドからのHTTPリクエストの処理
- * - CORS設定によるクロスオリジン通信の許可（Vercel対応）
- * - 投資シミュレーション用の家計簿データ提供
- */
-
-// 【依存関係のインポート】
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 const express = require('express');
-const app = express();
 const cors = require('cors');
 const fetch = require('node-fetch');
-require('dotenv').config();
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 
-const PORT = process.env.PORT || 10000; // Renderでは環境変数PORTを使用
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 10000;
 const SALT_ROUNDS = 10;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret';
-
-// リクエストログ用
 const logPath = path.join(__dirname, 'requests.log');
 
-// =============================
-// PostgreSQL接続設定（Render対応）
-// =============================
 const pool = new Pool({
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT || 5432),
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl: { rejectUnauthorized: false }
+    ssl: process.env.DB_SSL === 'false' ? undefined : { rejectUnauthorized: false }
 });
 
 const query = (text, params = []) => pool.query(text, params);
 
 pool.connect()
-.then(client => {
-    console.log('✅ Connected to PostgreSQL Database');
-    client.release();
-})
-.catch(err => {
-    console.error('❌ PostgreSQL connection error:', err);
-    process.exit(1);
-});
+    .then(client => {
+        console.log('✅ Connected to PostgreSQL');
+        client.release();
+    })
+    .catch(err => {
+        console.error('❌ PostgreSQL connection error:', err);
+        process.exit(1);
+    });
 
-    // =============================
-    // ミドルウェア設定
-    // =============================
+app.set('trust proxy', 1);
 app.use(express.json());
 
-// ✅ Vercel + Render 両方対応のCORS設定
-app.use(cors({
-origin: [
+const allowedOrigins = [
     'http://localhost:3001',
-    'https://kakeibo-invest.vercel.app' // ← あなたのVercel URL
-],
-credentials: true
+    process.env.CLIENT_ORIGIN
+].filter(Boolean);
+
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true
 }));
 
-// ✅ セッション設定
 app.use(session({
-name: 'kakeibo.sid',
-secret: SESSION_SECRET,
-resave: false,
-saveUninitialized: false,
-cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // Render上ではtrue
-    sameSite: 'none', // Vercel↔Render間で必要
-    maxAge: 1000 * 60 * 60 * 24 // 1日
-}
+    name: 'kakeibo.sid',
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 1000 * 60 * 60 * 24
+    }
 }));
-// ✅ リクエストログ出力
+
 app.use((req, res, next) => {
-const log = `${new Date().toISOString()} ${req.method} ${req.url}\n`;
-fs.appendFileSync(logPath, log);
-next();
+    const log = `${new Date().toISOString()} ${req.method} ${req.url}\n`;
+    fs.appendFileSync(logPath, log);
+    next();
 });
 
 const requireAuth = (req, res, next) => {
-if (!req.session.user) {
-    return res.status(401).json({ error: 'ログインが必要です。' });
-}
-next();
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'ログインが必要です。' });
+    }
+    next();
 };
 
-// =============================
-// サーバー起動
-// =============================
 app.listen(PORT, () => {
-console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
-// ========================================
-// 【API エンドポイント定義】
-// ========================================
 
-/**
- * ① 全ての家計簿データを取得
-*/
 app.get('/api/kakeibo', requireAuth, async (req, res) => {
-try {
-    const { rows } = await query(
-    'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
-    [req.session.user.id]
-    );
-    res.json(rows);
-} catch (error) {
-    console.error('Get kakeibo failed:', error);
-    res.status(500).json({ error: '家計簿データの取得に失敗しました。' });
-}
+    try {
+        const { rows } = await query(
+            'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
+            [req.session.user.id]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('Get kakeibo failed:', error);
+        res.status(500).json({ error: '家計簿データの取得に失敗しました。' });
+    }
 });
 
-/**
- * ② 新しい支出データを追加
- */
 app.post('/api/kakeibo', requireAuth, async (req, res) => {
-const { title, category, amount, date } = req.body || {};
-if (!title || !category || !amount || !date) {
-    return res.status(400).json({ error: 'タイトル、カテゴリ、金額、日付は必須です。' });
-}
+    const { title, category, amount, date } = req.body || {};
+    if (!title || !category || !amount || !date) {
+        return res.status(400).json({ error: 'タイトル、カテゴリ、金額、日付は必須です。' });
+    }
 
     const parsedAmount = Number(amount);
     if (Number.isNaN(parsedAmount)) {
@@ -135,29 +105,27 @@ if (!title || !category || !amount || !date) {
 
     try {
         const { rows } = await query(
-        'INSERT INTO kakeibo_data (title, category, amount, date, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [title, category, parsedAmount, date, req.session.user.id]
+            'INSERT INTO kakeibo_data (title, category, amount, date, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+            [title, category, parsedAmount, date, req.session.user.id]
         );
         res.json({ message: '追加しました！', id: rows[0].id });
     } catch (error) {
         console.error('Insert kakeibo failed:', error);
         res.status(500).json({ error: '家計簿データの追加に失敗しました。' });
     }
-    });
+});
 
-    /**
-     * ③ 指定IDの支出データを削除
-     */
-    app.delete('/api/kakeibo/:id', requireAuth, async (req, res) => {
+app.delete('/api/kakeibo/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
+
     try {
         const result = await query(
-        'DELETE FROM kakeibo_data WHERE id = $1 AND user_id = $2 RETURNING id',
-        [id, req.session.user.id]
+            'DELETE FROM kakeibo_data WHERE id = $1 AND user_id = $2 RETURNING id',
+            [id, req.session.user.id]
         );
 
         if (result.rowCount === 0) {
-        return res.status(404).json({ error: '対象データが見つかりませんでした。' });
+            return res.status(404).json({ error: '対象データが見つかりませんでした。' });
         }
 
         res.json({ message: '🗑️削除しました！' });
@@ -167,526 +135,202 @@ if (!title || !category || !amount || !date) {
     }
 });
 
-/**
- * ④ 投資シミュレーション用データ
- */
 app.get('/expenses', requireAuth, async (req, res) => {
     try {
         const { rows } = await query(
-        'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
-        [req.session.user.id]
+            'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
+            [req.session.user.id]
         );
         res.json(rows);
     } catch (error) {
         console.error('Expenses query failed:', error);
         res.status(500).json({ error: '支出データの取得に失敗しました。' });
     }
-    });
+});
 
-    // ========================================
-    // 【認証API】
-    // ========================================
-    app.post('/api/auth/register', async (req, res) => {
-    const { email, password, name } = req.body || {};
-    if (!email || !password) {
-        return res.status(400).json({ error: 'メールアドレスとパスワードは必須です。' });
+app.get('/expenses/investment', requireAuth, async (req, res) => {
+    try {
+        const { rows } = await query(
+            'SELECT * FROM kakeibo_data WHERE category = $1 AND user_id = $2 ORDER BY date DESC',
+            ['investment', req.session.user.id]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('Investment expenses query failed:', error);
+        res.status(500).json({ error: '投資データの取得に失敗しました。' });
     }
+});
+
+app.get('/api/stock-cached/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    const CACHE_EXPIRY_HOURS = 24;
 
     try {
-        const { rows: existing } = await query('SELECT id FROM users WHERE email = $1', [email]);
-        if (existing.length > 0) {
-        return res.status(409).json({ error: 'このメールアドレスは既に登録されています。' });
+        const { rows: cachedRows } = await query(
+            `
+            SELECT data, fetched_at
+            FROM stock_cache
+            WHERE symbol = $1
+              AND fetched_at > NOW() - $2 * INTERVAL '1 hour'
+            ORDER BY fetched_at DESC
+            LIMIT 1
+            `,
+            [symbol, CACHE_EXPIRY_HOURS]
+        );
+
+        const cachedEntry = cachedRows[0];
+
+        if (cachedEntry) {
+            const payload = typeof cachedEntry.data === 'string'
+                ? JSON.parse(cachedEntry.data)
+                : cachedEntry.data;
+
+            return res.json({
+                data: payload,
+                cached: true,
+                fetchedAt: cachedEntry.fetched_at
+            });
         }
 
-        const hash = await bcrypt.hash(password, SALT_ROUNDS);
-        const { rows } = await query(
-        'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
-        [email, hash, name]
+        const apiKey = process.env.ALPHA_VANTAGE_API_KEY || process.env.ALPHAVANTAGE_API_KEY;
+        if (!apiKey) {
+            throw new Error('Alpha Vantage API key not found in environment variables');
+        }
+
+        const apiUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=${symbol}&apikey=${apiKey}`;
+        const response = await fetch(apiUrl);
+        const apiData = await response.json();
+
+        if (apiData['Error Message'] || apiData['Note']) {
+            throw new Error(apiData['Error Message'] || apiData['Note'] || 'API limit reached');
+        }
+
+        await query(
+            `
+            INSERT INTO stock_cache (symbol, data, fetched_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (symbol)
+            DO UPDATE SET data = EXCLUDED.data, fetched_at = EXCLUDED.fetched_at
+            `,
+            [symbol, JSON.stringify(apiData)]
         );
-        req.session.user = rows[0];
-        res.status(201).json({ message: '登録完了', user: rows[0] });
-    } catch (err) {
-        console.error('Register failed:', err);
-        res.status(500).json({ error: '登録に失敗しました。' });
+
+        return res.json({
+            data: apiData,
+            cached: false,
+            realData: true
+        });
+    } catch (error) {
+        console.error('Cache error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/auth/register', async (req, res) => {
+    const { email, password, name } = req.body || {};
+
+    if (!email || typeof email !== 'string' || email.trim() === '') {
+        return res.status(400).json({ error: 'メールアドレスは必須です。' });
+    }
+    if (!password || typeof password !== 'string' || password.trim() === '') {
+        return res.status(400).json({ error: 'パスワードは必須です。' });
+    }
+
+    const normalizedEmail = email.trim();
+    const normalizedPassword = password.trim();
+    const normalizedName = typeof name === 'string' && name.trim() !== '' ? name.trim() : null;
+
+    try {
+        const { rows: existingUsers } = await query(
+            'SELECT id FROM users WHERE email = $1',
+            [normalizedEmail]
+        );
+
+        if (existingUsers.length > 0) {
+            return res.status(409).json({ error: 'このメールアドレスは既に登録されています。' });
+        }
+
+        const passwordHash = await bcrypt.hash(normalizedPassword, SALT_ROUNDS);
+        const { rows } = await query(
+            'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
+            [normalizedEmail, passwordHash, normalizedName]
+        );
+
+        const sessionUser = rows[0];
+        req.session.user = sessionUser;
+
+        return res.status(201).json({
+            message: 'ユーザー登録が完了しました。',
+            user: sessionUser
+        });
+    } catch (error) {
+        console.error('Register failed:', error);
+        return res.status(500).json({ error: '登録に失敗しました。' });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body || {};
+
+    if (!email || typeof email !== 'string' || email.trim() === '') {
+        return res.status(400).json({ error: 'メールアドレスは必須です。' });
+    }
+    if (!password || typeof password !== 'string' || password.trim() === '') {
+        return res.status(400).json({ error: 'パスワードは必須です。' });
+    }
+
+    const normalizedEmail = email.trim();
+    const normalizedPassword = password.trim();
+
     try {
-        const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
-        if (rows.length === 0) return res.status(401).json({ error: '認証エラー' });
+        const { rows } = await query(
+            'SELECT id, email, name, password_hash FROM users WHERE email = $1',
+            [normalizedEmail]
+        );
+
+        if (rows.length === 0) {
+            return res.status(401).json({ error: 'メールアドレスまたはパスワードが正しくありません。' });
+        }
 
         const user = rows[0];
-        const match = await bcrypt.compare(password, user.password_hash);
-        if (!match) return res.status(401).json({ error: 'パスワードが違います。' });
+        const match = await bcrypt.compare(normalizedPassword, user.password_hash);
+        if (!match) {
+            return res.status(401).json({ error: 'メールアドレスまたはパスワードが正しくありません。' });
+        }
 
-        req.session.user = { id: user.id, email: user.email };
-        res.json({ message: 'ログイン成功', user: req.session.user });
-    } catch (err) {
-        console.error('Login failed:', err);
-        res.status(500).json({ error: 'ログインに失敗しました。' });
+        const sessionUser = {
+            id: user.id,
+            email: user.email,
+            name: user.name || null
+        };
+
+        req.session.user = sessionUser;
+
+        return res.json({ message: 'ログイン成功', user: sessionUser });
+    } catch (error) {
+        console.error('Login failed:', error);
+        return res.status(500).json({ error: 'ログインに失敗しました。' });
     }
 });
 
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy(err => {
-        if (err) return res.status(500).json({ error: 'ログアウト失敗' });
-        res.clearCookie('kakeibo.sid');
-        res.json({ message: 'ログアウトしました。' });
+        if (err) {
+            console.error('Logout failed:', err);
+            return res.status(500).json({ error: 'ログアウト失敗' });
+        }
+        res.clearCookie('kakeibo.sid', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+        });
+        return res.json({ message: 'ログアウトしました。' });
     });
 });
 
-
-
-/**
- * 🏠💰 Backend Server - Express.js + MySQL家計簿サーバー
- * 
- * 【ファイルの役割】
- * - 家計簿データのCRUD操作（作成・読み取り・削除）
- * - MySQL データベースとの接続管理
- * - フロントエンドからのHTTPリクエストの処理
- * - CORS設定によるクロスオリジン通信の許可
- * - 投資シミュレーション用の家計簿データ提供
- * 
- * 【API エンドポイント一覧】
- * GET  /api/kakeibo        - 全ての家計簿データを取得
- * POST /api/kakeibo        - 新しい支出データを追加
- * DELETE /api/kakeibo/:id  - 指定IDの支出データを削除
- * GET  /expenses           - 全支出データ取得（投資シミュレーション用）
- * GET  /expenses/investment - 投資カテゴリーのみ取得（デバッグ用）
- * 
- * 【データベース構造】
- * テーブル名: kakeibo_data
- * カラム: id (INT), title (VARCHAR), category (VARCHAR), amount (INT), date (DATE)
- */
-
-// 【依存関係のインポート】
-// ファイル操作用のモジュールを読み込み
-
-// const fs = require('fs');
-// const path = require('path');
-// const { Pool } = require('pg');
-// const express = require('express');   // Web フレームワーク
-// const app = express();               // Express アプリケーションインスタンス
-// const cors = require('cors');        // Cross-Origin Resource Sharing
-// const fetch = require('node-fetch');  // HTTP requests for Alpha Vantage API
-// require('dotenv').config();          // 環境変数の読み込み
-// const PORT = 3000;                   // サーバーポート番号
-// const bcrypt = require('bcrypt');    // パスワードハッシュ化ライブラリ
-// const SALT_ROUNDS = 10;              // bcryptのソルトラウンド数 ラウンドとは、ハッシュ化の計算コストを示す。数値が大きいほどセキュリティは高まるが、処理時間も増加する
-// const session = require('express-session');
-// const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret';
-
-// const logPath = path.join(__dirname, 'requests.log');
-
-// const pool = new Pool({
-//     host: process.env.DB_HOST || 'localhost',
-//     port: Number(process.env.DB_PORT) || 5432,
-//     user: process.env.DB_USER || 'postgres',
-//     password: process.env.DB_PASSWORD || '',
-//     database: process.env.DB_NAME || process.env.DB_NAME || 'kakeibo',
-//     ssl: (process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production')
-//         ? { rejectUnauthorized: false }
-//         : undefined,
-// });
-
-// const query = (text, params = []) => pool.query(text, params);
-
-// pool.connect()
-//     .then(client => {
-//         console.log('Connected to PostgreSQL');
-//         client.release();
-//     })
-//     .catch(err => {
-//         console.error('PostgreSQL connection error:', err);
-//         process.exit(1);
-//     });
-
-// // 【ミドルウェアの設定】
-// app.use(express.json()); // JSON形式のリクエストボディを解析
-
-// // CORS設定 - フロントエンド(port 3001)からのアクセスを許可
-// // Same-Origin Policyによる制限を回避し、異なるポート間の通信を可能にする
-// app.use(cors({
-//     origin: process.env.CLIENT_ORIGIN || 'http://localhost:3001',
-//     credentials: true
-// }));
-
-// app.use(session({
-//     name: 'kakeibo.sid',
-//     secret: SESSION_SECRET,
-//     resave: false,
-//     saveUninitialized: false,
-//     cookie: {
-//         httpOnly: true,
-//         secure: process.env.NODE_ENV === 'production',
-//         sameSite: 'lax',
-//         maxAge: 1000 * 60 * 60 * 24 // 1 day
-//     }
-// }));
-
-// // ミドルウェア内で使用
-// app.use((req, res, next) => {
-//     const log = `${new Date().toISOString()} ${req.method} ${req.url}\n`;
-//     fs.appendFileSync(logPath, log);
-//     next();
-// });
-
-// const requireAuth = (req, res, next) => {
-//     if (!req.session.user) {
-//         return res.status(401).json({ error: 'ログインが必要です。' });
-//     }
-//     next();
-// };
-// // 【サーバー起動】
-// app.listen(PORT, () => {
-//     console.log(`Server running at http://localhost:${PORT}`);
-// });
-
-// // ========================================
-// // 【API エンドポイント定義】
-// // ========================================
-
-// /**
-//  * ① 全ての家計簿データを取得
-//  * エンドポイント: GET /api/kakeibo
-//  * 用途: メイン家計簿ページでの支出一覧表示
-//  */
-// app.get('/api/kakeibo', requireAuth, async (req, res) => {
-//     try {
-//         const { rows } = await query(
-//             'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
-//             [req.session.user.id]
-//         );
-//         res.json(rows);
-//     } catch (error) {
-//         console.error('Get kakeibo failed:', error);
-//         res.status(500).json({ error: '家計簿データの取得に失敗しました。' });
-//     }
-// });
-
-// /**
-//  * ② 新しい支出データを追加
-//  * エンドポイント: POST /api/kakeibo
-//  * リクエストボディ: { title, category, amount, date }
-//  * 用途: 家計簿アプリでの新規支出入力
-//  */
-// app.post('/api/kakeibo', requireAuth, async (req, res) => {
-//     const { title, category, amount, date } = req.body || {};
-
-//     if (!title || !category || !amount || !date) {
-//         return res.status(400).json({ error: 'タイトル、カテゴリ、金額、日付は必須です。' });
-//     }
-
-//     const parsedAmount = Number(amount);
-//     if (Number.isNaN(parsedAmount)) {
-//         return res.status(400).json({ error: '金額は数値で指定してください。' });
-//     }
-
-//     try {
-//         const { rows } = await query(
-//             'INSERT INTO kakeibo_data (title, category, amount, date, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-//             [title, category, parsedAmount, date, req.session.user.id]
-//         );
-//         res.json({ message: '追加しました！', id: rows[0].id });
-//     } catch (error) {
-//         console.error('Insert kakeibo failed:', error);
-//         res.status(500).json({ error: '家計簿データの追加に失敗しました。' });
-//     }
-// });
-
-// /**
-//  * ③ 指定IDの支出データを削除
-//  * エンドポイント: DELETE /api/kakeibo/:id
-//  * パラメータ: id - 削除対象のレコードID
-//  * 用途: 家計簿アプリでの支出削除機能
-//  */
-// app.delete('/api/kakeibo/:id', requireAuth, async (req, res) => {
-//     const { id } = req.params;
-
-//     try {
-//         const result = await query(
-//             'DELETE FROM kakeibo_data WHERE id = $1 AND user_id = $2 RETURNING id',
-//             [id, req.session.user.id]
-//         );
-
-//         if (result.rowCount === 0) {
-//             return res.status(404).json({ error: '対象データが見つかりませんでした。' });
-//         }
-
-//         res.json({ message: '🗑️削除しました！' });
-//     } catch (error) {
-//         console.error('Delete kakeibo failed:', error);
-//         res.status(500).json({ error: '家計簿データの削除に失敗しました。' });
-//     }
-// });
-
-// /**
-//  * ④ 全支出データを取得（投資シミュレーション用）
-//  * エンドポイント: GET /expenses
-//  * 用途: Next.js API Routes経由での家計簿データ取得
-//  * 特徴: 投資カテゴリーの詳細ログ出力付き
-//  */
-// app.get('/expenses', requireAuth, async (req, res) => {
-//     try {
-//         const { rows } = await query(
-//             'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
-//             [req.session.user.id]
-//         );
-
-//         const investmentData = rows.filter(item => item.category === 'investment');
-//         console.log('Expenses data fetched:', rows.length, 'records');
-//         console.log('Investment records found:', investmentData.length);
-//         investmentData.forEach(item => {
-//             console.log(`- ${item.date}: ¥${item.amount} (${item.title})`);
-//         });
-
-//         res.json(rows);
-//     } catch (error) {
-//         console.error('Expenses query failed:', error);
-//         res.status(500).json({ error: '支出データの取得に失敗しました。' });
-//     }
-// });
-
-// /**
-//  * ⑤ 投資カテゴリーのデータのみを取得（デバッグ用）
-//  * エンドポイント: GET /expenses/investment
-//  * 用途: 投資データの確認・デバッグ
-//  * 特徴: サーバー側で投資カテゴリーのみをフィルタリング
-//  */
-// app.get('/expenses/investment', requireAuth, async (req, res) => {
-//     try {
-//         const { rows } = await query(
-//             'SELECT * FROM kakeibo_data WHERE category = $1 AND user_id = $2 ORDER BY date DESC',
-//             ['investment', req.session.user.id]
-//         );
-//         console.log('Investment-only data fetched:', rows.length, 'records');
-//         res.json(rows);
-//     } catch (error) {
-//         console.error('Investment expenses query failed:', error);
-//         res.status(500).json({ error: '投資データの取得に失敗しました。' });
-//     }
-// });
-
-// // ========================================
-// // 【ALPHA VANTAGE API キャッシュ機能】
-// // ========================================
-
-// /**
-//  * Alpha Vantage APIキャッシュ付き株価データ取得
-//  * エンドポイント: GET /api/stock-cached/:symbol
-//  * 用途: Alpha Vantage API制限回避のため、MySQLキャッシュを使用
-//  */
-// app.get('/api/stock-cached/:symbol', async (req, res) => {
-//     const { symbol } = req.params;
-//     const CACHE_EXPIRY_HOURS = 24;
-    
-//     try {
-//         const { rows: cachedRows } = await query(
-//             `
-//             SELECT data, fetched_at
-//             FROM stock_cache
-//             WHERE symbol = $1
-//               AND fetched_at > NOW() - $2 * INTERVAL '1 hour'
-//             ORDER BY fetched_at DESC
-//             LIMIT 1
-//             `,
-//             [symbol, CACHE_EXPIRY_HOURS]
-//         );
-
-//         const cachedEntry = cachedRows[0];
-
-//         if (cachedEntry) {
-//             const payload = typeof cachedEntry.data === 'string'
-//                 ? JSON.parse(cachedEntry.data)
-//                 : cachedEntry.data;
-
-//             console.log(`📦 Cache hit for ${symbol}`);
-//             return res.json({
-//                 data: payload,
-//                 cached: true,
-//                 fetchedAt: cachedEntry.fetched_at
-//             });
-//         }
-
-//         console.log(`🌐 Cache miss for ${symbol}, fetching from Alpha Vantage API`);
-        
-//         const apiKey = process.env.ALPHA_VANTAGE_API_KEY || process.env.ALPHAVANTAGE_API_KEY;
-//         if (!apiKey) {
-//             throw new Error('Alpha Vantage API key not found in environment variables');
-//         }
-
-//         const apiUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=${symbol}&apikey=${apiKey}`;
-//         console.log(`📡 Fetching from Alpha Vantage: ${symbol}`);
-        
-//         const response = await fetch(apiUrl);
-//         const apiData = await response.json();
-        
-//         if (apiData['Error Message'] || apiData['Note']) {
-//             console.error('Alpha Vantage API error:', apiData);
-//             throw new Error(apiData['Error Message'] || apiData['Note'] || 'API limit reached');
-//         }
-
-//         await query(
-//             `
-//             INSERT INTO stock_cache (symbol, data, fetched_at)
-//             VALUES ($1, $2, NOW())
-//             ON CONFLICT (symbol)
-//             DO UPDATE SET data = EXCLUDED.data, fetched_at = EXCLUDED.fetched_at
-//             `,
-//             [symbol, JSON.stringify(apiData)]
-//         );
-
-//         console.log(`💾 Saved real data for ${symbol} to cache`);
-//         res.json({
-//             data: apiData,
-//             cached: false,
-//             realData: true
-//         });
-
-//     } catch (error) {
-//         console.error('Cache error:', error);
-//         res.status(500).json({ error: error.message });
-//     }
-// });
-
-
-// // ========================================
-// // 【認証API 入力値の検証】
-// // ========================================
-
-// app.post('/api/auth/register', async (req, res) => {
-//     const { email, password, name } = req.body || {}; //リクエストボディからemail, password, nameを取得。bodyがundefinedの場合に備えて空オブジェクトをデフォルト値として設定
-
-//     // 入力値の基本的な検証 - メールアドレスとパスワードの存在チェック
-//     if (!email || typeof email !== 'string' || email.trim() === '') {
-//         return res.status(400).json({ error: 'メールアドレスは必須です。' });
-//     }
-
-//     if (!password || typeof password !== 'string' || password.trim() === '') {
-//         return res.status(400).json({ error: 'パスワードは必須です。' });
-//     }
-
-//     const normalizedEmail = email.trim();
-//     const normalizedPassword = password.trim();
-//     const normalizedName = typeof name === 'string' && name.trim() !== '' ? name.trim() : null;
-
-//     try {
-//         const { rows: existingUsers } = await query(
-//             'SELECT id FROM users WHERE email = $1',
-//             [normalizedEmail]
-//         );
-
-//         if (existingUsers.length > 0) {
-//             return res.status(409).json({ error: 'このメールアドレスは既に登録されています。' });
-//         }
-//     } catch (error) {
-//         console.error('User lookup failed:', error);
-//         return res.status(500).json({ error: 'サーバーエラーが発生しました。' });
-//     }
-
-//     let passwordHash;
-//     try {
-//         passwordHash = await bcrypt.hash(normalizedPassword, SALT_ROUNDS);
-//     } catch (error) {
-//         console.error('Password hashing failed:', error);
-//         return res.status(500).json({ error: 'パスワードのハッシュ化に失敗しました。' });
-//     }
-
-//     try {
-//         const { rows } = await query(
-//             'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
-//             [normalizedEmail, passwordHash, normalizedName]
-//         );
-
-//         const sessionUser = rows[0];
-
-//         req.session.user = sessionUser;
-
-//         return res.status(201).json({
-//             message: 'ユーザー登録が完了しました。',
-//             user: sessionUser
-//         });
-//     } catch (error) {
-//         console.error('User insert failed:', error);
-//         return res.status(500).json({ error: 'ユーザー登録に失敗しました。' });
-//     }
-// });
-
-// // ========================================
-// // 【認証API - ログイン】
-// // ========================================
-
-// app.post('/api/auth/login', async (req, res) => {
-//     const { email, password } = req.body || {};
-
-//     if (!email || typeof email !== 'string' || email.trim() === '') {
-//         return res.status(400).json({ error: 'メールアドレスは必須です。' });
-//     }
-
-//     if (!password || typeof password !== 'string' || password.trim() === '') {
-//         return res.status(400).json({ error: 'パスワードは必須です。' });
-//     }
-
-//     const normalizedEmail = email.trim();
-//     const rawPassword = password.trim();
-
-//     let user;
-//     try {
-//         const { rows } = await query(
-//             'SELECT id, password_hash, name FROM users WHERE email = $1',
-//             [normalizedEmail]
-//         );
-
-//         if (rows.length === 0) {
-//             return res.status(401).json({ error: 'メールアドレスまたはパスワードが正しくありません。' });
-//         }
-
-//         user = rows[0];
-//     } catch (error) {
-//         console.error('Login lookup failed:', error);
-//         return res.status(500).json({ error: 'サーバーエラーが発生しました。' });
-//     }
-
-//     try {
-//         const match = await bcrypt.compare(rawPassword, user.password_hash);
-//         if (!match) {
-//             return res.status(401).json({ error: 'メールアドレスまたはパスワードが正しくありません。' });
-//         }
-//     } catch (error) {
-//         console.error('Password comparison failed:', error);
-//         return res.status(500).json({ error: 'サーバーエラーが発生しました。' });
-//     }
-
-//     const sessionUser = {
-//         id: user.id,
-//         email: normalizedEmail,
-//         name: user.name || null
-//     };
-
-//     req.session.user = sessionUser;
-
-//     return res.status(200).json({
-//         message: 'ログインに成功しました。',
-//         user: sessionUser
-//     });
-// });
-
-// app.post('/api/auth/logout', (req, res) => {
-//     req.session.destroy(err => {
-//         if (err) {
-//             console.error('Logout failed:', err);
-//             return res.status(500).json({ error: 'ログアウトに失敗しました。' });
-//         }
-//         res.clearCookie('kakeibo.sid');
-//         return res.json({ message: 'ログアウトしました。' });
-//     });
-// });
-
-// app.get('/api/auth/me', (req, res) => {
-//     if (!req.session.user) {
-//         return res.status(401).json({ error: 'ログインしていません。' });
-//     }
-//     return res.json({ user: req.session.user });
-// });
+app.get('/api/auth/me', (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'ログインしていません。' });
+    }
+    return res.json({ user: req.session.user });
+});
