@@ -39,13 +39,24 @@ pool.connect()
 app.set('trust proxy', 1);
 app.use(express.json());
 
-const allowedOrigins = [
+const envOrigins = process.env.CLIENT_ORIGINS
+    ? process.env.CLIENT_ORIGINS.split(',').map(origin => origin.trim())
+    : [];
+
+const allowedOrigins = new Set([
     'http://localhost:3001',
-    process.env.CLIENT_ORIGIN
-].filter(Boolean);
+    process.env.CLIENT_ORIGIN,
+    ...envOrigins
+].filter(Boolean));
 
 const corsOptions = {
-    origin: allowedOrigins,
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.has(origin)) {
+            return callback(null, true);
+        }
+        console.warn(`❌ Blocked CORS origin: ${origin}`);
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true
 };
 
