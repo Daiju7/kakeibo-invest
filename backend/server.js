@@ -5,6 +5,247 @@
  * - 家計簿データのCRUD操作（作成・読み取り・削除）
  * - PostgreSQL データベースとの接続管理（Render対応）
  * - フロントエンドからのHTTPリクエストの処理
+ * - CORS設定によるクロスオリジン通信の許可（Vercel対応）
+ * - 投資シミュレーション用の家計簿データ提供
+ */
+
+// 【依存関係のインポート】
+const fs = require('fs');
+const path = require('path');
+const { Pool } = require('pg');
+const express = require('express');
+const app = express();
+const cors = require('cors');
+const fetch = require('node-fetch');
+require('dotenv').config();
+const bcrypt = require('bcrypt');
+const session = require('express-session');
+
+const PORT = process.env.PORT || 10000; // Renderでは環境変数PORTを使用
+const SALT_ROUNDS = 10;
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret';
+
+// リクエストログ用
+const logPath = path.join(__dirname, 'requests.log');
+
+// =============================
+// PostgreSQL接続設定（Render対応）
+// =============================
+const pool = new Pool({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 5432),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    ssl: { rejectUnauthorized: false }
+});
+
+const query = (text, params = []) => pool.query(text, params);
+
+pool.connect()
+.then(client => {
+    console.log('✅ Connected to PostgreSQL Database');
+    client.release();
+})
+.catch(err => {
+    console.error('❌ PostgreSQL connection error:', err);
+    process.exit(1);
+});
+
+    // =============================
+    // ミドルウェア設定
+    // =============================
+app.use(express.json());
+
+// ✅ Vercel + Render 両方対応のCORS設定
+app.use(cors({
+origin: [
+    'http://localhost:3001',
+    'https://kakeibo-invest.vercel.app' // ← あなたのVercel URL
+],
+credentials: true
+}));
+
+// ✅ セッション設定
+app.use(session({
+name: 'kakeibo.sid',
+secret: SESSION_SECRET,
+resave: false,
+saveUninitialized: false,
+cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // Render上ではtrue
+    sameSite: 'none', // Vercel↔Render間で必要
+    maxAge: 1000 * 60 * 60 * 24 // 1日
+}
+}));
+// ✅ リクエストログ出力
+app.use((req, res, next) => {
+const log = `${new Date().toISOString()} ${req.method} ${req.url}\n`;
+fs.appendFileSync(logPath, log);
+next();
+});
+
+const requireAuth = (req, res, next) => {
+if (!req.session.user) {
+    return res.status(401).json({ error: 'ログインが必要です。' });
+}
+next();
+};
+
+// =============================
+// サーバー起動
+// =============================
+app.listen(PORT, () => {
+console.log(`🚀 Server running on port ${PORT}`);
+});
+// ========================================
+// 【API エンドポイント定義】
+// ========================================
+
+/**
+ * ① 全ての家計簿データを取得
+*/
+app.get('/api/kakeibo', requireAuth, async (req, res) => {
+try {
+    const { rows } = await query(
+    'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
+    [req.session.user.id]
+    );
+    res.json(rows);
+} catch (error) {
+    console.error('Get kakeibo failed:', error);
+    res.status(500).json({ error: '家計簿データの取得に失敗しました。' });
+}
+});
+
+/**
+ * ② 新しい支出データを追加
+ */
+app.post('/api/kakeibo', requireAuth, async (req, res) => {
+const { title, category, amount, date } = req.body || {};
+if (!title || !category || !amount || !date) {
+    return res.status(400).json({ error: 'タイトル、カテゴリ、金額、日付は必須です。' });
+}
+
+    const parsedAmount = Number(amount);
+    if (Number.isNaN(parsedAmount)) {
+        return res.status(400).json({ error: '金額は数値で指定してください。' });
+    }
+
+    try {
+        const { rows } = await query(
+        'INSERT INTO kakeibo_data (title, category, amount, date, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [title, category, parsedAmount, date, req.session.user.id]
+        );
+        res.json({ message: '追加しました！', id: rows[0].id });
+    } catch (error) {
+        console.error('Insert kakeibo failed:', error);
+        res.status(500).json({ error: '家計簿データの追加に失敗しました。' });
+    }
+    });
+
+    /**
+     * ③ 指定IDの支出データを削除
+     */
+    app.delete('/api/kakeibo/:id', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await query(
+        'DELETE FROM kakeibo_data WHERE id = $1 AND user_id = $2 RETURNING id',
+        [id, req.session.user.id]
+        );
+
+        if (result.rowCount === 0) {
+        return res.status(404).json({ error: '対象データが見つかりませんでした。' });
+        }
+
+        res.json({ message: '🗑️削除しました！' });
+    } catch (error) {
+        console.error('Delete kakeibo failed:', error);
+        res.status(500).json({ error: '家計簿データの削除に失敗しました。' });
+    }
+});
+
+/**
+ * ④ 投資シミュレーション用データ
+ */
+app.get('/expenses', requireAuth, async (req, res) => {
+    try {
+        const { rows } = await query(
+        'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
+        [req.session.user.id]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('Expenses query failed:', error);
+        res.status(500).json({ error: '支出データの取得に失敗しました。' });
+    }
+    });
+
+    // ========================================
+    // 【認証API】
+    // ========================================
+    app.post('/api/auth/register', async (req, res) => {
+    const { email, password, name } = req.body || {};
+    if (!email || !password) {
+        return res.status(400).json({ error: 'メールアドレスとパスワードは必須です。' });
+    }
+
+    try {
+        const { rows: existing } = await query('SELECT id FROM users WHERE email = $1', [email]);
+        if (existing.length > 0) {
+        return res.status(409).json({ error: 'このメールアドレスは既に登録されています。' });
+        }
+
+        const hash = await bcrypt.hash(password, SALT_ROUNDS);
+        const { rows } = await query(
+        'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
+        [email, hash, name]
+        );
+        req.session.user = rows[0];
+        res.status(201).json({ message: '登録完了', user: rows[0] });
+    } catch (err) {
+        console.error('Register failed:', err);
+        res.status(500).json({ error: '登録に失敗しました。' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { email, password } = req.body || {};
+    try {
+        const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
+        if (rows.length === 0) return res.status(401).json({ error: '認証エラー' });
+
+        const user = rows[0];
+        const match = await bcrypt.compare(password, user.password_hash);
+        if (!match) return res.status(401).json({ error: 'パスワードが違います。' });
+
+        req.session.user = { id: user.id, email: user.email };
+        res.json({ message: 'ログイン成功', user: req.session.user });
+    } catch (err) {
+        console.error('Login failed:', err);
+        res.status(500).json({ error: 'ログインに失敗しました。' });
+    }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) return res.status(500).json({ error: 'ログアウト失敗' });
+        res.clearCookie('kakeibo.sid');
+        res.json({ message: 'ログアウトしました。' });
+    });
+});
+
+
+
+/**
+ * 🏠💰 Backend Server - Express.js + MySQL家計簿サーバー
+ * 
+ * 【ファイルの役割】
+ * - 家計簿データのCRUD操作（作成・読み取り・削除）
+ * - MySQL データベースとの接続管理
+ * - フロントエンドからのHTTPリクエストの処理
  * - CORS設定によるクロスオリジン通信の許可
  * - 投資シミュレーション用の家計簿データ提供
  * 
@@ -17,280 +258,11 @@
  * 
  * 【データベース構造】
  * テーブル名: kakeibo_data
- * カラム: id (SERIAL), title (VARCHAR), category (VARCHAR), amount (INT), date (DATE)
+ * カラム: id (INT), title (VARCHAR), category (VARCHAR), amount (INT), date (DATE)
  */
 
 // 【依存関係のインポート】
-const fs = require("fs");
-const path = require("path");
-const { Pool } = require("pg");      // PostgreSQLクライアント
-const express = require("express");
-const app = express();
-const cors = require("cors");
-const fetch = require("node-fetch"); // Alpha Vantage API 用HTTPクライアント
-require("dotenv").config();          // 環境変数の読み込み
-const PORT = process.env.PORT || 3000;
-const session = require("express-session");
-const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret';
-
-
-
-
-// ----------------------------------------
-// 【PostgreSQL 接続設定】Render対応
-// ----------------------------------------
-const pool = new Pool({
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT || 5432),
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    ssl: { rejectUnauthorized: false }, // RenderはSSL必須
-});
-
-// SQL実行を簡略化するラッパ関数
-const query = (text, params = []) => pool.query(text, params);
-
-// PostgreSQL接続確認
-pool.connect()
-    .then(client => {
-        console.log("✅ Connected to PostgreSQL Database");
-        client.release();
-    })
-    .catch(err => {
-        console.error("❌ PostgreSQL connection error:", err);
-        process.exit(1);
-    });
-
-// ----------------------------------------
-// 【ミドルウェア設定】
-// ----------------------------------------
-app.use(express.json());
-app.use(cors({
-    origin: [
-        'http://localhost:3001',                // ローカル開発用
-        'https://kakeibo-invest.vercel.app' // ← VercelフロントURL
-    ],
-    credentials: true
-}));
-
-
-// リクエストログ記録
-const logPath = path.join(__dirname, "requests.log");
-app.use((req, res, next) => {
-    const log = `${new Date().toISOString()} ${req.method} ${req.url}\n`;
-    fs.appendFileSync(logPath, log);
-    next();
-});
-
-// セッション管理設定
-app.use(session({
-    name: 'kakeibo.sid',
-    secret: SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly: true,
-        secure: true,          // 本番では true
-        sameSite: 'none',      // ← ここ重要！異なるドメイン間でCookie共有可能に
-        maxAge: 1000 * 60 * 60 * 24
-    }
-}));
-
-
-// ----------------------------------------
-// 【APIエンドポイント定義】
-// ----------------------------------------
-
-/**
- * ① 全ての家計簿データを取得
- * エンドポイント: GET /api/kakeibo
- */
-app.get("/api/kakeibo", async (req, res) => {
-    try {
-        const { rows } = await query("SELECT * FROM kakeibo_data ORDER BY date DESC");
-        res.json(rows);
-        console.log("📦 家計簿データを取得しました。");
-    } catch (error) {
-        console.error("❌ Get kakeibo failed:", error);
-        res.status(500).json({ error: "家計簿データの取得に失敗しました。" });
-    }
-});
-
-/**
- * ② 新しい支出データを追加
- * エンドポイント: POST /api/kakeibo
- */
-app.post("/api/kakeibo", async (req, res) => {
-    const { title, category, amount, date } = req.body;
-
-    if (!title || !category || !amount || !date) {
-        return res.status(400).json({ error: "タイトル、カテゴリ、金額、日付は必須です。" });
-    }
-
-    try {
-        const result = await query(
-        "INSERT INTO kakeibo_data (title, category, amount, date) VALUES ($1, $2, $3, $4) RETURNING id",
-        [title, category, amount, date]
-        );
-        res.json({ message: "✅ 追加しました！", id: result.rows[0].id });
-    } catch (error) {
-        console.error("❌ Insert kakeibo failed:", error);
-        res.status(500).json({ error: "家計簿データの追加に失敗しました。" });
-    }
-});
-
-/**
- * ③ 指定IDの支出データを削除
- * エンドポイント: DELETE /api/kakeibo/:id
- */
-app.delete("/api/kakeibo/:id", async (req, res) => {
-    const { id } = req.params;
-    try {
-        const result = await query("DELETE FROM kakeibo_data WHERE id = $1 RETURNING id", [id]);
-        if (result.rowCount === 0) {
-        return res.status(404).json({ error: "対象データが見つかりません。" });
-        }
-        res.json({ message: "🗑️ 削除しました！" });
-    } catch (error) {
-        console.error("❌ Delete failed:", error);
-        res.status(500).json({ error: "削除に失敗しました。" });
-    }
-});
-
-/**
- * ④ 全支出データを取得（投資シミュレーション用）
- */
-app.get("/expenses", async (req, res) => {
-    try {
-        const { rows } = await query("SELECT * FROM kakeibo_data ORDER BY date DESC");
-        const investmentData = rows.filter(item => item.category === "investment");
-
-        console.log(`📊 全データ ${rows.length} 件, 投資カテゴリー ${investmentData.length} 件`);
-        res.json(rows);
-    } catch (error) {
-        console.error("❌ Expenses query failed:", error);
-        res.status(500).json({ error: "支出データの取得に失敗しました。" });
-    }
-});
-
-/**
- * ⑤ 投資カテゴリーのみ取得（デバッグ用）
- */
-app.get("/expenses/investment", async (req, res) => {
-    try {
-        const { rows } = await query(
-        "SELECT * FROM kakeibo_data WHERE category = $1 ORDER BY date DESC",
-        ["investment"]
-        );
-        console.log(`💰 投資データ ${rows.length} 件を取得しました。`);
-        res.json(rows);
-    } catch (error) {
-        console.error("❌ Investment query failed:", error);
-        res.status(500).json({ error: "投資データの取得に失敗しました。" });
-    }
-});
-
-// ----------------------------------------
-// 【Alpha Vantage API キャッシュ機能】
-// ----------------------------------------
-
-/**
- * Alpha Vantage APIキャッシュ付き株価データ取得
- * エンドポイント: GET /api/stock-cached/:symbol
- */
-app.get("/api/stock-cached/:symbol", async (req, res) => {
-    const { symbol } = req.params;
-    const CACHE_EXPIRY_HOURS = 24;
-
-    try {
-        const { rows: cached } = await query(
-        `
-        SELECT data, fetched_at
-        FROM stock_cache
-        WHERE symbol = $1
-            AND fetched_at > NOW() - INTERVAL '${CACHE_EXPIRY_HOURS} hours'
-        ORDER BY fetched_at DESC
-        LIMIT 1
-        `,
-        [symbol]
-    );
-
-    // キャッシュがあれば返す
-    if (cached.length > 0) {
-        console.log(`📦 Cache hit for ${symbol}`);
-        const data = typeof cached[0].data === "string" ? JSON.parse(cached[0].data) : cached[0].data;
-        return res.json({ data, cached: true, fetchedAt: cached[0].fetched_at });
-    }
-
-    console.log(`🌐 Cache miss for ${symbol}, fetching from Alpha Vantage API`);
-
-    const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
-    const apiUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=${symbol}&apikey=${apiKey}`;
-    const response = await fetch(apiUrl);
-    const apiData = await response.json();
-
-    if (apiData["Error Message"] || apiData["Note"]) {
-        throw new Error(apiData["Error Message"] || apiData["Note"] || "API limit reached");
-    }
-
-    await query(
-        `
-        INSERT INTO stock_cache (symbol, data, fetched_at)
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (symbol)
-        DO UPDATE SET data = EXCLUDED.data, fetched_at = EXCLUDED.fetched_at
-        `,
-        [symbol, JSON.stringify(apiData)]
-    );
-
-    console.log(`💾 Saved real data for ${symbol} to cache`);
-    res.json({ data: apiData, cached: false });
-    } catch (error) {
-    console.error("❌ Stock cache error:", error);
-    res.status(500).json({ error: error.message });
-    }
-});
-
-// ----------------------------------------
-// 【サーバー起動】
-// ----------------------------------------
-app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
-
-
-
-
-
-
-
-
-
-// /**
-//  * 🏠💰 Backend Server - Express.js + MySQL家計簿サーバー
-//  * 
-//  * 【ファイルの役割】
-//  * - 家計簿データのCRUD操作（作成・読み取り・削除）
-//  * - MySQL データベースとの接続管理
-//  * - フロントエンドからのHTTPリクエストの処理
-//  * - CORS設定によるクロスオリジン通信の許可
-//  * - 投資シミュレーション用の家計簿データ提供
-//  * 
-//  * 【API エンドポイント一覧】
-//  * GET  /api/kakeibo        - 全ての家計簿データを取得
-//  * POST /api/kakeibo        - 新しい支出データを追加
-//  * DELETE /api/kakeibo/:id  - 指定IDの支出データを削除
-//  * GET  /expenses           - 全支出データ取得（投資シミュレーション用）
-//  * GET  /expenses/investment - 投資カテゴリーのみ取得（デバッグ用）
-//  * 
-//  * 【データベース構造】
-//  * テーブル名: kakeibo_data
-//  * カラム: id (INT), title (VARCHAR), category (VARCHAR), amount (INT), date (DATE)
-//  */
-
-// // 【依存関係のインポート】
-// // ファイル操作用のモジュールを読み込み
+// ファイル操作用のモジュールを読み込み
 
 // const fs = require('fs');
 // const path = require('path');
