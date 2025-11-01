@@ -69,7 +69,7 @@ app.use(express.json());
 app.use(cors({
     origin: [
         'http://localhost:3001',                // ローカル開発用
-        'https://kakeibo-invest.vercel.app/' // ← VercelフロントURL
+        'https://kakeibo-invest.vercel.app' // ← VercelフロントURL
     ],
     credentials: true
 }));
