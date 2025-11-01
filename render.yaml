@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: kakeibo-backend
+    env: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server.js
