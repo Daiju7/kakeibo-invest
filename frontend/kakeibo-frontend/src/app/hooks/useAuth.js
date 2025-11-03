@@ -5,19 +5,30 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"
 // トークン管理
 const getToken = () => {
     if (typeof window !== 'undefined') {
-        return localStorage.getItem('authToken');
+        const token = localStorage.getItem('authToken');
+        console.log('🔍 getToken() called, result:', !!token);
+        return token;
     }
+    console.log('🔍 getToken() called on server side, returning null');
     return null;
 };
 
 const setToken = (token) => {
     if (typeof window !== 'undefined') {
+        console.log('🔐 setToken() called with token:', token ? token.substring(0, 20) + '...' : 'null');
         localStorage.setItem('authToken', token);
+        
+        // 保存確認
+        const saved = localStorage.getItem('authToken');
+        console.log('🔐 Token save verification:', !!saved, saved === token ? 'MATCH' : 'MISMATCH');
+    } else {
+        console.log('🔐 setToken() called on server side, ignoring');
     }
 };
 
 const removeToken = () => {
     if (typeof window !== 'undefined') {
+        console.log('🗑️ removeToken() called');
         localStorage.removeItem('authToken');
     }
 };
