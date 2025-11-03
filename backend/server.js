@@ -5,7 +5,9 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const bcrypt = require('bcrypt');
+// セッションストア用のconnect-pgを追加する必要があります
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 
 require('dotenv').config();
 
@@ -39,40 +41,51 @@ pool.connect()
 app.set('trust proxy', 1);
 app.use(express.json());
 
-const envOrigins = process.env.CLIENT_ORIGINS
-    ? process.env.CLIENT_ORIGINS.split(',').map(origin => origin.trim())
-    : [];
-
-const allowedOrigins = new Set([
-    'http://localhost:3001',
-    process.env.CLIENT_ORIGIN,
-    ...envOrigins
-].filter(Boolean));
-
+// 本番環境用の簡潔なCORS設定
 const corsOptions = {
-    origin(origin, callback) {
-        if (!origin || allowedOrigins.has(origin)) {
-            return callback(null, true);
+    origin: function (origin, callback) {
+        // 開発環境または許可されたドメインからのリクエストを許可
+        const allowedOrigins = [
+            'http://localhost:3001',
+            process.env.CLIENT_ORIGIN,
+            process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+            ...(process.env.CLIENT_ORIGINS ? process.env.CLIENT_ORIGINS.split(',') : [])
+        ].filter(Boolean);
+
+        console.log('🔍 CORS Check - Origin:', origin, 'Allowed:', allowedOrigins);
+
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`❌ CORS rejected: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
         }
-        console.warn(`❌ Blocked CORS origin: ${origin}`);
-        return callback(new Error('Not allowed by CORS'));
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 app.use(cors(corsOptions));
 
+// セッション設定を本番環境対応に修正
 app.use(session({
+    store: new pgSession({
+        pool: pool,
+        tableName: 'session',
+        createTableIfMissing: true
+    }),
     name: 'kakeibo.sid',
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    proxy: true,
+    proxy: process.env.NODE_ENV === 'production', // 本番環境でのみproxy: true
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 1000 * 60 * 60 * 24
+        maxAge: 1000 * 60 * 60 * 24, // 24時間
+        domain: process.env.NODE_ENV === 'production' ? undefined : undefined
     }
 }));
 
