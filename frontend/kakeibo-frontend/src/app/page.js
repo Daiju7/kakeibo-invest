@@ -6,6 +6,28 @@ import CycleChart from "./components/Cycle-Chart";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 
+// トークン取得関数
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken');
+  }
+  return null;
+};
+
+// APIリクエスト用のヘッダー生成
+const getAuthHeaders = () => {
+  const token = getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+};
+
 export default function Page() {
   const [data, setData] = useState([]); //データベース状態管理
   const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
@@ -24,9 +46,7 @@ export default function Page() {
       const response = await fetch(`${API_BASE}/api/kakeibo`, {
         method: 'GET',
         credentials: "include",
-        headers: {
-          'Content-Type': 'application/json',
-        }
+        headers: getAuthHeaders()
       });
 
       console.log('🔍 Kakeibo response status:', response.status);
@@ -62,7 +82,7 @@ export default function Page() {
     try {
       const response = await fetch(`${API_BASE}/api/kakeibo`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         credentials: "include",
         body: JSON.stringify(form)
       });
@@ -93,7 +113,8 @@ export default function Page() {
     try{
       const response = await fetch(`${API_BASE}/api/kakeibo/${id}`, {
         method:"DELETE",
-        credentials: "include"
+        credentials: "include",
+        headers: getAuthHeaders()
       });
 
       if (response.status === 401) {

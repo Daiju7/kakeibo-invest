@@ -2,6 +2,26 @@ import { useState, useEffect } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 
+// トークン管理
+const getToken = () => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('authToken');
+    }
+    return null;
+};
+
+const setToken = (token) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('authToken', token);
+    }
+};
+
+const removeToken = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+    }
+};
+
 export function useAuth() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -10,12 +30,23 @@ export function useAuth() {
     const checkAuth = async () => {
         try {
             console.log('🔍 Checking auth with API_BASE:', API_BASE);
+            
+            const token = getToken();
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+                console.log('🔍 Using JWT token for auth');
+            } else {
+                console.log('🔍 No JWT token found, using session');
+            }
+            
             const response = await fetch(`${API_BASE}/api/auth/me`, {
                 method: 'GET',
                 credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
+                headers: headers
             });
 
             console.log('🔍 Auth response status:', response.status);
@@ -29,6 +60,7 @@ export function useAuth() {
             } else {
                 console.log('❌ Auth failed:', response.status);
                 setUser(null);
+                removeToken(); // 無効なトークンを削除
                 if (response.status !== 401) {
                     setError('認証確認に失敗しました');
                 }
@@ -36,15 +68,52 @@ export function useAuth() {
         } catch (err) {
             console.error('Auth check failed:', err);
             setUser(null);
+            removeToken();
             setError('認証確認でエラーが発生しました');
         } finally {
             setLoading(false);
         }
     };
 
+    const login = async (email, password) => {
+        try {
+            const response = await fetch(`${API_BASE}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ email, password })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.token) {
+                    setToken(data.token);
+                    console.log('✅ JWT token saved');
+                }
+                setUser(data.user);
+                setError(null);
+                return { success: true };
+            } else {
+                const data = await response.json();
+                setError(data.error || 'ログインに失敗しました');
+                return { success: false, error: data.error };
+            }
+        } catch (err) {
+            console.error('Login failed:', err);
+            setError('ログインでエラーが発生しました');
+            return { success: false, error: 'ログインでエラーが発生しました' };
+        }
+    };
+
+    const logout = () => {
+        removeToken();
+        setUser(null);
+        setError(null);
+    };
+
     useEffect(() => {
         checkAuth();
     }, []);
 
-    return { user, loading, error, checkAuth };
+    return { user, loading, error, checkAuth, login, logout };
 }

@@ -8,6 +8,7 @@ const bcrypt = require('bcrypt');
 // セッションストア用のconnect-pgを追加する必要があります
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
+const { generateToken, verifyToken, getTokenFromRequest, requireAuthJWT } = require('./auth-token');
 
 require('dotenv').config();
 
@@ -121,13 +122,29 @@ const requireAuth = (req, res, next) => {
     console.log('🔍 Auth check - Session ID:', req.sessionID);
     console.log('🔍 Auth check - Session user:', req.session.user);
     console.log('🔍 Auth check - Session:', req.session);
+    console.log('🔍 Auth check - Authorization header:', req.headers.authorization);
     
+    // JWT認証を優先して試す
+    const token = getTokenFromRequest(req);
+    if (token) {
+        const user = verifyToken(token);
+        if (user) {
+            console.log('✅ JWT Auth success - User:', user);
+            req.user = user;
+            return next();
+        } else {
+            console.log('❌ JWT token invalid');
+        }
+    }
+    
+    // フォールバックとしてセッション認証
     if (!req.session.user) {
         console.log('❌ Auth failed - No session user');
         return res.status(401).json({ error: 'ログインが必要です。' });
     }
     
-    console.log('✅ Auth success - User:', req.session.user);
+    console.log('✅ Session Auth success - User:', req.session.user);
+    req.user = req.session.user;
     next();
 };
 
@@ -362,12 +379,20 @@ app.post('/api/auth/login', async (req, res) => {
 
         req.session.user = sessionUser;
 
+        // JWT トークン生成
+        const token = generateToken(sessionUser);
+
         // デバッグ用ログ
         console.log('🔐 Login successful - Session ID:', req.sessionID);
         console.log('🔐 Session user set:', sessionUser);
         console.log('🔐 Session cookie options:', req.session.cookie);
+        console.log('🔐 JWT token generated');
 
-        return res.json({ message: 'ログイン成功', user: sessionUser });
+        return res.json({ 
+            message: 'ログイン成功', 
+            user: sessionUser,
+            token: token  // トークンも返す
+        });
     } catch (error) {
         console.error('Login failed:', error);
         return res.status(500).json({ error: 'ログインに失敗しました。' });
@@ -393,7 +418,21 @@ app.get('/api/auth/me', (req, res) => {
     console.log('👤 Auth check - Session ID:', req.sessionID);
     console.log('👤 Auth check - Session user:', req.session.user);
     console.log('👤 Auth check - Cookies received:', req.headers.cookie);
+    console.log('👤 Auth check - Authorization header:', req.headers.authorization);
     
+    // JWT認証を優先して試す
+    const token = getTokenFromRequest(req);
+    if (token) {
+        const user = verifyToken(token);
+        if (user) {
+            console.log('✅ JWT auth successful:', user);
+            return res.json({ user: user });
+        } else {
+            console.log('❌ JWT token invalid');
+        }
+    }
+    
+    // フォールバックとしてセッション認証
     if (!req.session.user) {
         console.log('❌ No session user found');
         return res.status(401).json({ error: 'ログインしていません。' });
