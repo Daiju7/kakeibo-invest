@@ -32,16 +32,21 @@ export function useAuth() {
             console.log('🔍 Checking auth with API_BASE:', API_BASE);
             
             const token = getToken();
+            console.log('🔍 Retrieved token from localStorage:', !!token);
+            console.log('🔍 Token preview:', token ? token.substring(0, 20) + '...' : 'null');
+            
             const headers = {
                 'Content-Type': 'application/json',
             };
             
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
-                console.log('🔍 Using JWT token for auth');
+                console.log('🔍 Using JWT token for auth, header set');
             } else {
                 console.log('🔍 No JWT token found, using session');
             }
+            
+            console.log('🔍 Request headers:', headers);
             
             const response = await fetch(`${API_BASE}/api/auth/me`, {
                 method: 'GET',
@@ -77,6 +82,7 @@ export function useAuth() {
 
     const login = async (email, password) => {
         try {
+            console.log('🔐 Starting login process...');
             const response = await fetch(`${API_BASE}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -84,22 +90,35 @@ export function useAuth() {
                 body: JSON.stringify({ email, password })
             });
 
+            console.log('🔐 Login response status:', response.status);
+            
             if (response.ok) {
                 const data = await response.json();
+                console.log('🔐 Login response data:', data);
+                
                 if (data.token) {
+                    console.log('🔐 Saving JWT token to localStorage...');
                     setToken(data.token);
-                    console.log('✅ JWT token saved');
+                    
+                    // 保存されたか確認
+                    const savedToken = getToken();
+                    console.log('🔐 Token saved successfully:', !!savedToken);
+                    console.log('🔐 Token preview:', savedToken ? savedToken.substring(0, 20) + '...' : 'null');
+                } else {
+                    console.warn('⚠️ No token in login response');
                 }
+                
                 setUser(data.user);
                 setError(null);
                 return { success: true };
             } else {
                 const data = await response.json();
+                console.log('❌ Login failed with response:', data);
                 setError(data.error || 'ログインに失敗しました');
                 return { success: false, error: data.error };
             }
         } catch (err) {
-            console.error('Login failed:', err);
+            console.error('❌ Login failed:', err);
             setError('ログインでエラーが発生しました');
             return { success: false, error: 'ログインでエラーが発生しました' };
         }

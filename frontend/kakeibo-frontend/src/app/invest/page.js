@@ -13,15 +13,44 @@ export default function Invest() {
     const [isMounted, setIsMounted] = useState(false);
     const [activeView, setActiveView] = useState("monitor"); // monitor | virtual | linked
 
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+
+    // トークン取得関数
+    const getToken = () => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('authToken');
+        }
+        return null;
+    };
+
+    // APIリクエスト用のヘッダー生成
+    const getAuthHeaders = () => {
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        return headers;
+    };
+
     useEffect(() => {
         setIsMounted(true);
 
         const fetchData = async () => {
             try {
                 console.log("🔄 Starting data fetch...");
+                console.log("🔄 Using API_BASE:", API_BASE);
+                
                 const [stockRes, expenseRes] = await Promise.all([
-                    fetch("/api/stock"),
-                    fetch("/api/expenses")
+                    fetch(`${API_BASE}/api/stock`),
+                    fetch(`${API_BASE}/api/kakeibo`, { // /api/expenses を /api/kakeibo に変更
+                        credentials: 'include',
+                        headers: getAuthHeaders()
+                    })
                 ]);
 
                 console.log("📊 Stock API response status:", stockRes.status);

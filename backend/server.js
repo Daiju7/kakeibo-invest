@@ -234,6 +234,82 @@ app.get('/expenses/investment', requireAuth, async (req, res) => {
     }
 });
 
+// デフォルトの株価データエンドポイント（SPY）
+app.get('/api/stock', async (req, res) => {
+    const symbol = 'SPY'; // デフォルトでS&P500のETF
+    
+    try {
+        console.log(`📊 Fetching stock data for ${symbol}...`);
+        
+        // キャッシュから取得を試行
+        const { rows: cachedRows } = await query(
+            `
+            SELECT data, fetched_at
+            FROM stock_cache
+            WHERE symbol = $1
+              AND fetched_at > NOW() - 24 * INTERVAL '1 hour'
+            ORDER BY fetched_at DESC
+            LIMIT 1
+            `,
+            [symbol]
+        );
+
+        if (cachedRows.length > 0) {
+            const cachedEntry = cachedRows[0];
+            const payload = typeof cachedEntry.data === 'string'
+                ? JSON.parse(cachedEntry.data)
+                : cachedEntry.data;
+
+            console.log(`✅ Returning cached ${symbol} data`);
+            return res.json({
+                data: payload,
+                symbol: symbol,
+                cached: true,
+                fetchedAt: cachedEntry.fetched_at
+            });
+        }
+
+        // キャッシュにない場合は新規取得
+        console.log(`🔄 Fetching fresh ${symbol} data from Alpha Vantage...`);
+        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result['Error Message']) {
+            throw new Error(`Alpha Vantage API error: ${result['Error Message']}`);
+        }
+
+        if (result['Note']) {
+            throw new Error(`Alpha Vantage API limit: ${result['Note']}`);
+        }
+
+        if (!result['Time Series (Daily)']) {
+            throw new Error('Invalid API response format');
+        }
+
+        // データをキャッシュに保存
+        await query(
+            'INSERT INTO stock_cache (symbol, data, fetched_at) VALUES ($1, $2, NOW())',
+            [symbol, JSON.stringify(result)]
+        );
+
+        console.log(`✅ Fresh ${symbol} data fetched and cached`);
+        res.json({
+            data: result,
+            symbol: symbol,
+            cached: false,
+            fetchedAt: new Date()
+        });
+
+    } catch (error) {
+        console.error(`❌ Error fetching ${symbol} data:`, error);
+        res.status(500).json({
+            error: '株価データの取得に失敗しました',
+            message: error.message
+        });
+    }
+});
+
 app.get('/api/stock-cached/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const CACHE_EXPIRY_HOURS = 24;
