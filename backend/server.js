@@ -78,9 +78,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// OPTIONSプリフライトリクエストを明示的に処理
-app.options('*', cors(corsOptions));
-
 // セッション設定を本番環境対応に修正
 app.use(session({
     store: new pgSession({
