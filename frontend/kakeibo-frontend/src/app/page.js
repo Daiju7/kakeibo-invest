@@ -20,17 +20,27 @@ export default function Page() {
   //データ取得関数 （データ取得初回ロード時だけでなく、データ追加・削除後にも実行したいため、非同期処理にする）
   const fetchData = async() => {
     try {
+      console.log('🔍 Fetching kakeibo data from:', `${API_BASE}/api/kakeibo`);
       const response = await fetch(`${API_BASE}/api/kakeibo`, {
-        credentials: "include"
+        method: 'GET',
+        credentials: "include",
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
 
+      console.log('🔍 Kakeibo response status:', response.status);
+      console.log('🔍 Kakeibo response headers:', Object.fromEntries(response.headers.entries()));
+
       if (response.status === 401) {
+        console.log('❌ 401 Unauthorized - not logged in');
         setAuthError("家計簿データを見るにはログインが必要です。");
         setData([]);
         return;
       }
 
       const result = await response.json();
+      console.log('🔍 Kakeibo data received:', result);
 
       if (!Array.isArray(result)) {
         setData([]);
@@ -40,9 +50,9 @@ export default function Page() {
 
       setData(result);
       setAuthError(null);
-      console.log('取得できた');
+      console.log('✅ Kakeibo data loaded successfully');
     } catch (error) {
-      console.log('Error fetching data:', error);
+      console.log('❌ Error fetching data:', error);
       setAuthError("家計簿データの取得に失敗しました。");
     }
   }
