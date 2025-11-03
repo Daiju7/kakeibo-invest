@@ -99,6 +99,18 @@ app.use(session({
     }
 }));
 
+// セッションデバッグミドルウェア
+app.use((req, res, next) => {
+    console.log('📝 Session Debug:', {
+        sessionID: req.sessionID,
+        hasUser: !!req.session?.user,
+        userInfo: req.session?.user ? { id: req.session.user.id, email: req.session.user.email } : null,
+        cookieHeader: req.headers.cookie,
+        userAgent: req.headers['user-agent']
+    });
+    next();
+});
+
 app.use((req, res, next) => {
     const log = `${new Date().toISOString()} ${req.method} ${req.url}\n`;
     fs.appendFileSync(logPath, log);
@@ -106,9 +118,16 @@ app.use((req, res, next) => {
 });
 
 const requireAuth = (req, res, next) => {
+    console.log('🔍 Auth check - Session ID:', req.sessionID);
+    console.log('🔍 Auth check - Session user:', req.session.user);
+    console.log('🔍 Auth check - Session:', req.session);
+    
     if (!req.session.user) {
+        console.log('❌ Auth failed - No session user');
         return res.status(401).json({ error: 'ログインが必要です。' });
     }
+    
+    console.log('✅ Auth success - User:', req.session.user);
     next();
 };
 
@@ -343,6 +362,11 @@ app.post('/api/auth/login', async (req, res) => {
 
         req.session.user = sessionUser;
 
+        // デバッグ用ログ
+        console.log('🔐 Login successful - Session ID:', req.sessionID);
+        console.log('🔐 Session user set:', sessionUser);
+        console.log('🔐 Session cookie options:', req.session.cookie);
+
         return res.json({ message: 'ログイン成功', user: sessionUser });
     } catch (error) {
         console.error('Login failed:', error);
@@ -366,9 +390,16 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 app.get('/api/auth/me', (req, res) => {
+    console.log('👤 Auth check - Session ID:', req.sessionID);
+    console.log('👤 Auth check - Session user:', req.session.user);
+    console.log('👤 Auth check - Cookies received:', req.headers.cookie);
+    
     if (!req.session.user) {
+        console.log('❌ No session user found');
         return res.status(401).json({ error: 'ログインしていません。' });
     }
+    
+    console.log('✅ Session user found:', req.session.user);
     return res.json({ user: req.session.user });
 });
 
