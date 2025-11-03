@@ -88,14 +88,14 @@ app.use(session({
     name: 'kakeibo.sid',
     secret: SESSION_SECRET,
     resave: false,
-    saveUninitialized: false,
-    proxy: process.env.NODE_ENV === 'production', // 本番環境でのみproxy: true
+    saveUninitialized: true, // trueに変更してセッション生成を強制
+    proxy: process.env.NODE_ENV === 'production',
     cookie: {
-        httpOnly: true,
+        httpOnly: false, // デバッグのためfalseに変更
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 1000 * 60 * 60 * 24, // 24時間
-        domain: process.env.NODE_ENV === 'production' ? undefined : undefined
+        domain: undefined // domainを明示的にundefinedに
     }
 }));
 
