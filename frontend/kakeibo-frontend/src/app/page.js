@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "./hooks/useAuth";
 import styles from './page.module.css';
 import CycleChart from "./components/Cycle-Chart";
 
@@ -33,6 +34,7 @@ export default function Page() {
   const [form, setForm] = useState({ title: "", amount: "", date: "", category: "" }); //フォーム状態管理
   const [showAllExpenses, setShowAllExpenses] = useState(false);
   const [authError, setAuthError] = useState(null);
+  const { user, loading } = useAuth(); // 認証状態を取得
   
   //データ取得 　useEffectはコンポーネントのライフサイクルに基づいて副作用を実行するためのフック コンポーネントがマウント（初回レンダリング）されたときにfetchData関数を実行してデータを取得する
   useEffect(() => {
