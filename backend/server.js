@@ -41,32 +41,45 @@ pool.connect()
 app.set('trust proxy', 1);
 app.use(express.json());
 
-// 本番環境用の簡潔なCORS設定
+// 本番環境用の改良されたCORS設定
 const corsOptions = {
     origin: function (origin, callback) {
         // 開発環境または許可されたドメインからのリクエストを許可
         const allowedOrigins = [
             'http://localhost:3001',
+            'https://kakeibo-invest.vercel.app', // 明示的にVercelドメインを追加
             process.env.CLIENT_ORIGIN,
             process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-            ...(process.env.CLIENT_ORIGINS ? process.env.CLIENT_ORIGINS.split(',') : [])
+            ...(process.env.CLIENT_ORIGINS ? process.env.CLIENT_ORIGINS.split(',').map(o => o.trim()) : [])
         ].filter(Boolean);
 
-        console.log('🔍 CORS Check - Origin:', origin, 'Allowed:', allowedOrigins);
+        console.log('🔍 CORS Check - Origin:', origin, 'Allowed Origins:', allowedOrigins);
 
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
+        // originがnull/undefinedの場合（モバイルアプリなど）も許可
+        if (!origin) {
+            console.log('✅ CORS: No origin (mobile/postman), allowing');
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            console.log('✅ CORS: Origin allowed');
+            return callback(null, true);
         } else {
-            console.warn(`❌ CORS rejected: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
+            console.warn(`❌ CORS rejected origin: ${origin}`);
+            return callback(new Error('Not allowed by CORS'), false);
         }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie'],
+    optionsSuccessStatus: 200 // IE11対応
 };
 
 app.use(cors(corsOptions));
+
+// OPTIONSプリフライトリクエストを明示的に処理
+app.options('*', cors(corsOptions));
 
 // セッション設定を本番環境対応に修正
 app.use(session({
@@ -360,4 +373,23 @@ app.get('/api/auth/me', (req, res) => {
         return res.status(401).json({ error: 'ログインしていません。' });
     }
     return res.json({ user: req.session.user });
+});
+
+// ヘルスチェックエンドポイント（Renderのため）
+app.get('/', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Kakeibo Backend Server is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// ヘルスチェック用エンドポイント
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'healthy',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
 });
