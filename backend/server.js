@@ -374,20 +374,40 @@ app.get('/api/stock', async (req, res) => {
 // モックデータ生成関数
 function generateMockStockData(symbol) {
     const today = new Date();
-    const timeSeries = {};
+    const dailyTimeSeries = {};
+    const monthlyTimeSeries = {};
     
-    // 過去30日分のモックデータを生成
+    // 過去60ヶ月（5年分）のモックデータを生成
+    for (let i = 0; i < 60; i++) {
+        const date = new Date(today);
+        date.setMonth(date.getMonth() - i);
+        const monthStr = date.toISOString().substring(0, 7) + '-01'; // YYYY-MM-01 形式
+        
+        // SPYの実際の価格帯（約400-600ドル）でランダムに生成
+        const basePrice = 500;
+        const variation = (Math.random() - 0.5) * 50; // ±25ドルの変動
+        const price = basePrice + variation;
+        
+        monthlyTimeSeries[monthStr] = {
+            "1. open": (price * 0.995).toFixed(2),
+            "2. high": (price * 1.01).toFixed(2),
+            "3. low": (price * 0.99).toFixed(2),
+            "4. close": price.toFixed(2),
+            "5. volume": Math.floor(Math.random() * 500000000 + 100000000).toString()
+        };
+    }
+    
+    // 過去30日分のデイリーデータも生成
     for (let i = 0; i < 30; i++) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
         
-        // SPYの実際の価格帯（約400-600ドル）でランダムに生成
         const basePrice = 500;
         const variation = (Math.random() - 0.5) * 20; // ±10ドルの変動
         const price = basePrice + variation + (Math.random() - 0.5) * 5; // 日次変動
         
-        timeSeries[dateStr] = {
+        dailyTimeSeries[dateStr] = {
             "1. open": (price * 0.999).toFixed(2),
             "2. high": (price * 1.005).toFixed(2),
             "3. low": (price * 0.995).toFixed(2),
@@ -398,13 +418,14 @@ function generateMockStockData(symbol) {
     
     return {
         "Meta Data": {
-            "1. Information": "Daily Prices (Mock Data)",
+            "1. Information": "Daily Prices and Monthly Prices (Mock Data)",
             "2. Symbol": symbol,
             "3. Last Refreshed": today.toISOString().split('T')[0],
             "4. Output Size": "Compact",
             "5. Time Zone": "US/Eastern"
         },
-        "Time Series (Daily)": timeSeries
+        "Time Series (Daily)": dailyTimeSeries,
+        "Monthly Time Series": monthlyTimeSeries
     };
 }
 
