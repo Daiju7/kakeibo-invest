@@ -377,8 +377,8 @@ function generateMockStockData(symbol) {
     const dailyTimeSeries = {};
     const monthlyTimeSeries = {};
     
-    // 過去60ヶ月（5年分）のモックデータを生成
-    for (let i = 0; i < 60; i++) {
+    // 過去60ヶ月（5年分）のモックデータを生成 + 現在の月も含む
+    for (let i = 0; i <= 60; i++) { // 0から開始して現在月も含む
         const date = new Date(today);
         date.setMonth(date.getMonth() - i);
         const monthStr = date.toISOString().substring(0, 7) + '-01'; // YYYY-MM-01 形式
@@ -415,6 +415,8 @@ function generateMockStockData(symbol) {
             "5. volume": Math.floor(Math.random() * 50000000 + 10000000).toString()
         };
     }
+    
+    console.log(`📊 Generated mock data - Monthly keys:`, Object.keys(monthlyTimeSeries).slice(0, 5));
     
     return {
         "Meta Data": {
