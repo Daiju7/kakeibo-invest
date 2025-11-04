@@ -4,7 +4,6 @@
 
 家計簿で記録した投資データを使って、実際の株価（S&P500）でシミュレーションができる革新的なWebアプリです。
 
-![Kakeibo-Invest Demo](https://img.shields.io/badge/Demo-Live-brightgreen) ![Next.js](https://img.shields.io/badge/Next.js-15-black) ![Express.js](https://img.shields.io/badge/Express.js-Backend-green)
 
 ## 🎯 コンセプト
 
