@@ -54,6 +54,11 @@ const InvestmentSimulation = ({ stockData, expenseData, showTitle = true }) => {
         return acc;
     }, {});
 
+    console.log('📊 InvestmentSimulation Debug Info:');
+    console.log('📈 Stock prices (first 3):', stockPrices.slice(0, 3));
+    console.log('💰 Investments by month:', investmentsByMonth);
+    console.log('📅 Stock dates available:', Object.keys(stockTimeSeries).slice(0, 5));
+
     const simulationData = [];
     let totalInvested = 0;
     let totalShares = 0;
@@ -62,10 +67,13 @@ const InvestmentSimulation = ({ stockData, expenseData, showTitle = true }) => {
         const monthKey = stockPoint.date.substring(0, 7);
         const monthlyInvestment = investmentsByMonth[monthKey] || 0;
 
+        console.log(`📅 Processing ${monthKey}: investment=${monthlyInvestment}, stock price=${stockPoint.price}`);
+
         if (monthlyInvestment > 0) {
             const sharesCanBuy = monthlyInvestment / stockPoint.price;
             totalShares += sharesCanBuy;
             totalInvested += monthlyInvestment;
+            console.log(`💰 Invested ${monthlyInvestment} yen, bought ${sharesCanBuy.toFixed(4)} shares, total shares: ${totalShares.toFixed(4)}`);
         }
 
         const currentValue = totalShares * stockPoint.price;
@@ -82,6 +90,8 @@ const InvestmentSimulation = ({ stockData, expenseData, showTitle = true }) => {
             shares: totalShares
         });
     });
+
+    console.log('📊 Final simulation data (last 3):', simulationData.slice(-3));
 
     const labels = simulationData
         .filter((_, index) => index % 2 === 0)

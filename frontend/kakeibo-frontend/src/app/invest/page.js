@@ -121,6 +121,8 @@ export default function Invest() {
             const date = new Date(expense.date);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             
+            console.log(`💰 Processing expense: ${expense.title}, amount: ${expense.amount}, date: ${expense.date} → monthKey: ${monthKey}`);
+            
             if (!monthlyGroups[monthKey]) {
                 monthlyGroups[monthKey] = {
                     month: monthKey,
