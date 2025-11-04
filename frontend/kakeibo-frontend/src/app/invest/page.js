@@ -13,7 +13,7 @@ export default function Invest() {
     const [isMounted, setIsMounted] = useState(false);
     const [activeView, setActiveView] = useState("monitor"); // monitor | virtual | linked
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://kakeibo-backend-7c1q.onrender.com";
 
     // トークン取得関数
     const getToken = () => {
@@ -64,13 +64,17 @@ export default function Invest() {
 
                 const stockJson = await stockRes.json();
                 console.log("📈 Stock data received:", stockJson ? "✅ Success" : "❌ Empty");
+                console.log("📈 Full stock response:", stockJson);
 
                 if (stockJson.error) {
                     console.error("❌ Stock data contains error:", stockJson.error);
                     throw new Error(stockJson.message || stockJson.error);
                 }
 
-                setStockData(stockJson);
+                // バックエンドレスポンスの data フィールドから実際の株価データを取得
+                const actualStockData = stockJson.data || stockJson;
+                console.log("📈 Actual stock data structure:", Object.keys(actualStockData));
+                setStockData(actualStockData);
 
                 if (expenseRes.status === 401) {
                     console.warn("⚠️ Expense API requires login");
