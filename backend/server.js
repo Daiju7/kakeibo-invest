@@ -154,9 +154,15 @@ app.listen(PORT, () => {
 
 app.get('/api/kakeibo', requireAuth, async (req, res) => {
     try {
+        // JWTとセッション両方に対応
+        const userId = req.user?.id || req.session?.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'ユーザー認証が必要です。' });
+        }
+        
         const { rows } = await query(
             'SELECT * FROM kakeibo_data WHERE user_id = $1 ORDER BY date DESC',
-            [req.session.user.id]
+            [userId]
         );
         res.json(rows);
     } catch (error) {
@@ -177,9 +183,15 @@ app.post('/api/kakeibo', requireAuth, async (req, res) => {
     }
 
     try {
+        // JWTとセッション両方に対応
+        const userId = req.user?.id || req.session?.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'ユーザー認証が必要です。' });
+        }
+        
         const { rows } = await query(
             'INSERT INTO kakeibo_data (title, category, amount, date, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-            [title, category, parsedAmount, date, req.session.user.id]
+            [title, category, parsedAmount, date, userId]
         );
         res.json({ message: '追加しました！', id: rows[0].id });
     } catch (error) {
@@ -192,9 +204,15 @@ app.delete('/api/kakeibo/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
 
     try {
+        // JWTとセッション両方に対応
+        const userId = req.user?.id || req.session?.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'ユーザー認証が必要です。' });
+        }
+        
         const result = await query(
             'DELETE FROM kakeibo_data WHERE id = $1 AND user_id = $2 RETURNING id',
-            [id, req.session.user.id]
+            [id, userId]
         );
 
         if (result.rowCount === 0) {
