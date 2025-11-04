@@ -102,14 +102,58 @@ export default function Invest() {
         return null;
     }
 
+    // 家計簿データを月次投資データに変換する関数
+    const convertToMonthlyInvestmentData = (rawExpenseData) => {
+        if (!Array.isArray(rawExpenseData)) return null;
+
+        // 投資カテゴリのデータのみフィルタリング
+        const investmentExpenses = rawExpenseData.filter(
+            expense => expense.category === 'investment' || expense.category === '投資'
+        );
+
+        if (investmentExpenses.length === 0) return null;
+
+        console.log('💰 Investment expenses found:', investmentExpenses);
+
+        // 月ごとにグループ化
+        const monthlyGroups = {};
+        investmentExpenses.forEach(expense => {
+            const date = new Date(expense.date);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            
+            if (!monthlyGroups[monthKey]) {
+                monthlyGroups[monthKey] = {
+                    month: monthKey,
+                    totalAmount: 0,
+                    entries: []
+                };
+            }
+            
+            monthlyGroups[monthKey].totalAmount += expense.amount;
+            monthlyGroups[monthKey].entries.push(expense);
+        });
+
+        const monthlyData = Object.values(monthlyGroups).sort((a, b) => a.month.localeCompare(b.month));
+        
+        console.log('📊 Monthly investment data:', monthlyData);
+
+        return {
+            monthlyData,
+            totalAmount: monthlyData.reduce((sum, month) => sum + month.totalAmount, 0)
+        };
+    };
+
+    // 変換された投資データ
+    const processedExpenseData = expenseData ? convertToMonthlyInvestmentData(expenseData) : null;
+
     const hasStockTimeSeries =
         stockData &&
         (stockData["Time Series (Daily)"] || stockData["Monthly Time Series"]);
 
     const hasExpenseSeries =
-        expenseData &&
-        Array.isArray(expenseData.monthlyData) &&
-        expenseData.monthlyData.length > 0;
+        processedExpenseData &&
+        Array.isArray(processedExpenseData.monthlyData) &&
+        processedExpenseData.monthlyData.length > 0;
 
     const renderStateCard = (icon, message, detail) => (
         <div className={styles.stateCard}>
@@ -268,7 +312,7 @@ export default function Invest() {
                     {hasExpenseSeries ? (
                         <InvestmentSimulation
                             stockData={stockData}
-                            expenseData={expenseData}
+                            expenseData={processedExpenseData}
                             showTitle={false}
                         />
                     ) : (
