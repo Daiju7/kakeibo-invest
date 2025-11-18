@@ -211,6 +211,13 @@ export default function Invest() {
         hasMetaData: stockData && stockData["Meta Data"] ? "YES" : "NO"
     });
 
+    console.log("🎯 Final validation result:", {
+        hasStockTimeSeries: hasStockTimeSeries,
+        hasStockTimeSeriesType: typeof hasStockTimeSeries,
+        willRenderChart: hasStockTimeSeries === true,
+        currentPath: 'about to check if (!hasStockTimeSeries)'
+    });
+
     const hasExpenseSeries =
         processedExpenseData &&
         Array.isArray(processedExpenseData.monthlyData) &&
@@ -255,7 +262,8 @@ export default function Invest() {
     }
 
     if (!hasStockTimeSeries) {
-        console.log("❌ No stock time series data available");
+        console.log("❌ No stock time series data available - SHOWING ERROR PAGE");
+        console.log("❌ Debug: hasStockTimeSeries =", hasStockTimeSeries, "type:", typeof hasStockTimeSeries);
         return (
             <div className={styles.page}>
                 {renderStateCard("❌", "株価データが見つかりませんでした。", 
@@ -265,13 +273,17 @@ export default function Invest() {
                             hasStockData: !!stockData,
                             stockDataKeys: stockData ? Object.keys(stockData).slice(0, 5) : [],
                             hasError: !!stockData?.error,
-                            error: stockData?.error
+                            error: stockData?.error,
+                            hasStockTimeSeries: hasStockTimeSeries,
+                            hasStockTimeSeriesType: typeof hasStockTimeSeries
                         }, null, 2)}</pre>
                     </div>
                 )}
             </div>
         );
     }
+
+    console.log("✅ Stock time series data available - PROCEEDING TO CHART");
 
     const timeSeries =
         stockData["Monthly Time Series"] || stockData["Time Series (Daily)"];
