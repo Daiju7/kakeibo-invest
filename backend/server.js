@@ -278,19 +278,22 @@ app.get('/api/stock', async (req, res) => {
                 ? JSON.parse(cachedEntry.data)
                 : cachedEntry.data;
 
-            // API制限エラーの場合はモックデータを返す
-            if (payload && payload.Information && payload.Information.includes('rate limit')) {
-                console.log(`⚠️ API rate limit detected, using mock data for ${symbol}`);
-                payload = generateMockStockData(symbol);
+            // キャッシュされたデータがAPI制限エラーやモックデータでない場合のみ使用
+            if (payload && 
+                !payload.Information?.includes('rate limit') && 
+                !payload.mock &&
+                payload['Time Series (Daily)']) {
+                console.log(`✅ Returning cached real data for ${symbol}`);
+                return res.json({
+                    data: payload,
+                    symbol: symbol,
+                    cached: true,
+                    fetchedAt: cachedEntry.fetched_at
+                });
+            } else {
+                console.log(`⚠️ Cached data is invalid/mock, trying fresh API call for ${symbol}`);
+                // 無効なキャッシュの場合は新しくAPIを試行
             }
-
-            console.log(`✅ Returning cached ${symbol} data`);
-            return res.json({
-                data: payload,
-                symbol: symbol,
-                cached: true,
-                fetchedAt: cachedEntry.fetched_at
-            });
         }
 
         // キャッシュにない場合は新規取得
@@ -304,11 +307,8 @@ app.get('/api/stock', async (req, res) => {
             console.log(`⚠️ Alpha Vantage API rate limit reached, using mock data for ${symbol}`);
             const mockData = generateMockStockData(symbol);
             
-            // モックデータをキャッシュに保存
-            await query(
-                'INSERT INTO stock_cache (symbol, data, fetched_at) VALUES ($1, $2, NOW()) ON CONFLICT (symbol) DO UPDATE SET data = $2, fetched_at = NOW()',
-                [symbol, JSON.stringify(mockData)]
-            );
+            // モックデータはキャッシュしない（実データを優先するため）
+            console.log(`📝 Mock data not cached - will retry API on next request`);
             
             return res.json({
                 data: mockData,
@@ -331,6 +331,10 @@ app.get('/api/stock', async (req, res) => {
         if (!result['Time Series (Daily)']) {
             console.log(`⚠️ Invalid API response format, using mock data for ${symbol}`);
             const mockData = generateMockStockData(symbol);
+            
+            // モックデータはキャッシュしない
+            console.log(`📝 Mock data not cached - will retry API on next request`);
+            
             return res.json({
                 data: mockData,
                 symbol: symbol,
@@ -358,8 +362,9 @@ app.get('/api/stock', async (req, res) => {
     } catch (error) {
         console.error(`❌ Error fetching ${symbol} data:`, error);
         
-        // エラーの場合もモックデータで対応
+        // エラーの場合もモックデータで対応（キャッシュしない）
         console.log(`🔄 Falling back to mock data for ${symbol}`);
+        console.log(`📝 Mock data not cached - will retry API on next request`);
         const mockData = generateMockStockData(symbol);
         
         res.json({
@@ -367,9 +372,21 @@ app.get('/api/stock', async (req, res) => {
             symbol: symbol,
             cached: false,
             mock: true,
-            message: 'Using mock data (API limit reached)',
+            message: 'Using mock data (API error)',
             fetchedAt: new Date()
         });
+    }
+});
+
+// キャッシュクリア用のエンドポイント（管理用）
+app.delete('/api/stock/cache', async (req, res) => {
+    try {
+        await query('DELETE FROM stock_cache WHERE symbol = $1', ['SPY']);
+        console.log('🗑️ Stock cache cleared for SPY');
+        res.json({ message: 'SPY cache cleared successfully - next request will fetch fresh data' });
+    } catch (error) {
+        console.error('❌ Error clearing cache:', error);
+        res.status(500).json({ error: 'Failed to clear cache' });
     }
 });
 
@@ -391,11 +408,11 @@ function generateMockStockData(symbol) {
         const price = basePrice + variation;
         
         monthlyTimeSeries[monthStr] = {
-            "1. open": (price * 0.995).toFixed(2),
-            "2. high": (price * 1.01).toFixed(2),
-            "3. low": (price * 0.99).toFixed(2),
-            "4. close": price.toFixed(2),
-            "5. volume": Math.floor(Math.random() * 500000000 + 100000000).toString()
+            "1. open": (price * 0.995).toFixed(2),//これは、ランダムな始値を模倣しています
+            "2. high": (price * 1.01).toFixed(2),//これは、ランダムな高値を模倣しています
+            "3. low": (price * 0.99).toFixed(2), //これは、ランダムな高値と安値を模倣しています
+            "4. close": price.toFixed(2),  // クローズ価格
+            "5. volume": Math.floor(Math.random() * 500000000 + 100000000).toString() // これは、ランダムな取引量を模倣しています
         };
     }
     
