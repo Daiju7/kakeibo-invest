@@ -401,6 +401,10 @@ export default function Invest() {
 
                     <section className={styles.chartCard}>
                         <h2 className={styles.sectionTitle}>📊 株価チャート</h2>
+                        {console.log("📊 About to render StockChart with data:", {
+                            stockData: stockData ? "present" : "null",
+                            keys: stockData ? Object.keys(stockData) : []
+                        })}
                         <StockChart stockData={stockData} showSummary={false} />
                     </section>
                 </>

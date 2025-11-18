@@ -25,9 +25,25 @@ ChartJS.register(
 );
 
 const StockChart = ({ stockData, showSummary = true }) => {
+    console.log("📊 StockChart received data:", {
+        hasStockData: !!stockData,
+        stockDataKeys: stockData ? Object.keys(stockData) : [],
+        hasDaily: !!(stockData && stockData["Time Series (Daily)"]),
+        hasMonthly: !!(stockData && stockData["Monthly Time Series"])
+    });
+
     if (!stockData || (!stockData["Time Series (Daily)"] && !stockData["Monthly Time Series"])) {
-        return null;
+        console.log("❌ StockChart returning null - no valid data structure");
+        return <div style={{padding: '20px', textAlign: 'center'}}>
+            <p>📊 株価データの構造が無効です</p>
+            <pre>{JSON.stringify({
+                hasStockData: !!stockData,
+                keys: stockData ? Object.keys(stockData) : []
+            }, null, 2)}</pre>
+        </div>;
     }
+
+    console.log("✅ StockChart proceeding with data processing");
 
     const timeSeries =
         stockData["Monthly Time Series"] || stockData["Time Series (Daily)"];
