@@ -74,6 +74,12 @@ export default function Invest() {
                 // バックエンドレスポンスの data フィールドから実際の株価データを取得
                 const actualStockData = stockJson.data || stockJson;
                 console.log("📈 Actual stock data structure:", Object.keys(actualStockData));
+                
+                // モックデータの場合は警告表示（エラーではない）
+                if (stockJson.mock) {
+                    console.warn("⚠️ Using mock data:", stockJson.message || "Mock data is being used");
+                }
+                
                 setStockData(actualStockData);
 
                 if (expenseRes.status === 401) {
