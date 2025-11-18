@@ -41,13 +41,15 @@ export default function Invest() {
         setIsMounted(true);
 
         const fetchData = async () => {
+            console.log("🔄 Starting data fetch...");
+            console.log("🔄 Using API_BASE:", API_BASE);
+            console.log("🔄 isLoading state:", isLoading);
+            setIsLoading(true); // 明示的にローディング状態を設定
+
             try {
-                console.log("🔄 Starting data fetch...");
-                console.log("🔄 Using API_BASE:", API_BASE);
-                
                 const [stockRes, expenseRes] = await Promise.all([
                     fetch(`${API_BASE}/api/stock`),
-                    fetch(`${API_BASE}/api/kakeibo`, { // /api/expenses を /api/kakeibo に変更
+                    fetch(`${API_BASE}/api/kakeibo`, {
                         credentials: 'include',
                         headers: getAuthHeaders()
                     })
@@ -68,12 +70,19 @@ export default function Invest() {
 
                 if (stockJson.error) {
                     console.error("❌ Stock data contains error:", stockJson.error);
-                    throw new Error(stockJson.message || stockJson.error);
+                    setStockData({ error: stockJson.message || stockJson.error });
+                    setIsLoading(false);
+                    return;
                 }
 
                 // バックエンドレスポンスの data フィールドから実際の株価データを取得
                 const actualStockData = stockJson.data || stockJson;
                 console.log("📈 Actual stock data structure:", Object.keys(actualStockData));
+                console.log("📈 Checking for Time Series data:", {
+                    hasDaily: !!actualStockData["Time Series (Daily)"],
+                    hasMonthly: !!actualStockData["Monthly Time Series"],
+                    hasMeta: !!actualStockData["Meta Data"]
+                });
                 
                 // データの状態を表示
                 if (stockJson.status === 'old') {
@@ -96,7 +105,12 @@ export default function Invest() {
                     cached: stockJson.cached || false
                 };
                 
+                console.log("📈 About to set stock data:", {
+                    hasData: !!actualStockData,
+                    keys: Object.keys(actualStockData)
+                });
                 setStockData(actualStockData);
+                console.log("✅ Stock data set successfully");
 
                 if (expenseRes.status === 401) {
                     console.warn("⚠️ Expense API requires login");
@@ -107,18 +121,24 @@ export default function Invest() {
                     setExpenseData(expenseJson);
                 } else {
                     console.warn("⚠️ Expense API error:", expenseRes.status);
+                    setExpenseData(null);
                 }
+                
+                console.log("✅ Data fetch completed successfully");
+                console.log("🔄 About to set isLoading to false (success path)");
+                setIsLoading(false);
+                
             } catch (err) {
                 console.error("🚨 Error loading data:", err);
                 console.error("🔍 Error details:", err.message);
                 setStockData({ error: err.message });
-            } finally {
+                console.log("🔄 About to set isLoading to false (error path)");
                 setIsLoading(false);
             }
         };
 
         fetchData();
-    }, []);
+    }, []); // 空の依存配列にして初回のみ実行
 
     if (!isMounted) {
         return null;
@@ -172,7 +192,24 @@ export default function Invest() {
 
     const hasStockTimeSeries =
         stockData &&
+        !stockData.error &&
         (stockData["Time Series (Daily)"] || stockData["Monthly Time Series"]);
+
+    console.log("📊 Stock data validation:", {
+        hasStockData: !!stockData,
+        hasError: !!stockData?.error,
+        hasDaily: !!(stockData && stockData["Time Series (Daily)"]),
+        hasMonthly: !!(stockData && stockData["Monthly Time Series"]),
+        hasStockTimeSeries,
+        stockDataKeys: stockData ? Object.keys(stockData).slice(0, 10) : []
+    });
+
+    console.log("🔍 Detailed stock data structure check:", {
+        stockData: stockData ? "present" : "null",
+        topLevelKeys: stockData ? Object.keys(stockData) : [],
+        hasTimeSeriesDaily: stockData && stockData["Time Series (Daily)"] ? "YES" : "NO",
+        hasMetaData: stockData && stockData["Meta Data"] ? "YES" : "NO"
+    });
 
     const hasExpenseSeries =
         processedExpenseData &&
@@ -188,8 +225,15 @@ export default function Invest() {
     );
 
     if (isLoading) {
+        console.log("🔄 Currently in loading state");
         return <div className={styles.page}>{renderStateCard("📊", "データを読み込み中です...")}</div>;
     }
+
+    console.log("✅ Not in loading state, checking data...", {
+        hasStockData: !!stockData,
+        stockDataKeys: stockData ? Object.keys(stockData) : [],
+        hasError: stockData?.error
+    });
 
     if (stockData && stockData.error) {
         return (
@@ -211,9 +255,20 @@ export default function Invest() {
     }
 
     if (!hasStockTimeSeries) {
+        console.log("❌ No stock time series data available");
         return (
             <div className={styles.page}>
-                {renderStateCard("❌", "株価データが見つかりませんでした。")}
+                {renderStateCard("❌", "株価データが見つかりませんでした。", 
+                    <div>
+                        <p>デバッグ情報:</p>
+                        <pre>{JSON.stringify({
+                            hasStockData: !!stockData,
+                            stockDataKeys: stockData ? Object.keys(stockData).slice(0, 5) : [],
+                            hasError: !!stockData?.error,
+                            error: stockData?.error
+                        }, null, 2)}</pre>
+                    </div>
+                )}
             </div>
         );
     }
