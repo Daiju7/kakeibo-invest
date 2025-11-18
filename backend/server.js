@@ -16,6 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 const SALT_ROUNDS = 10;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret';
+const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
 const logPath = path.join(__dirname, 'requests.log');
 
 const pool = new Pool({
@@ -28,6 +29,11 @@ const pool = new Pool({
 });
 
 const query = (text, params = []) => pool.query(text, params);
+
+// 環境変数の検証
+if (!ALPHA_VANTAGE_API_KEY) {
+    console.warn('⚠️ ALPHA_VANTAGE_API_KEY is not set. Stock API will not work properly.');
+}
 
 pool.connect()
     .then(client => {
@@ -296,6 +302,12 @@ app.get('/api/stock', async (req, res) => {
 
         // 新しいデータを取得
         console.log(`🔄 Fetching fresh ${symbol} data from Alpha Vantage...`);
+        
+        // API キーの確認
+        if (!ALPHA_VANTAGE_API_KEY) {
+            throw new Error('ALPHA_VANTAGE_API_KEY is not defined');
+        }
+        
         const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
         const response = await fetch(url);
         const result = await response.json();
