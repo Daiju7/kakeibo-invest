@@ -48,6 +48,19 @@ const StockChart = ({ stockData, showSummary = true }) => {
     const timeSeries =
         stockData["Monthly Time Series"] || stockData["Time Series (Daily)"];
     const isMonthlyData = !!stockData["Monthly Time Series"];
+    
+    console.log("📈 Data processing:", {
+        hasTimeSeries: !!timeSeries,
+        isMonthlyData,
+        timeSeriesKeys: timeSeries ? Object.keys(timeSeries).slice(0, 3) : []
+    });
+
+    if (!timeSeries) {
+        console.log("❌ No time series data found");
+        return <div style={{padding: '20px', textAlign: 'center', border: '1px solid red'}}>
+            <p>❌ タイムシリーズデータが見つかりません</p>
+        </div>;
+    }
 
     const sortedData = Object.entries(timeSeries)
         .map(([date, values]) => ({
@@ -59,6 +72,13 @@ const StockChart = ({ stockData, showSummary = true }) => {
         }))
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(isMonthlyData ? -24 : -30);
+
+    console.log("📊 Sorted data:", {
+        totalEntries: Object.keys(timeSeries).length,
+        processedEntries: sortedData.length,
+        firstEntry: sortedData[0],
+        lastEntry: sortedData[sortedData.length - 1]
+    });
 
     const labels = sortedData.map((item) => {
         const date = new Date(item.date);
@@ -197,8 +217,17 @@ const StockChart = ({ stockData, showSummary = true }) => {
     const lastRefreshed =
         meta?.["3. Last Refreshed"] || meta?.["4. Last Refreshed"] || "";
 
+    console.log("🎯 About to render chart component", {
+        hasLabels: labels && labels.length > 0,
+        labelsCount: labels?.length,
+        hasChartData: !!chartData,
+        datasetsCount: chartData?.datasets?.length,
+        hasLatestData: !!latestData
+    });
+
     return (
         <div className={styles.container}>
+            {console.log("🎨 Rendering StockChart container")}
             {showSummary && latestData && (
                 <div className={styles.summary}>
                     <div className={styles.summaryItem}>
