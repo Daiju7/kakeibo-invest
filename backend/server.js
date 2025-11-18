@@ -315,6 +315,7 @@ app.get('/api/stock', async (req, res) => {
                 symbol: symbol,
                 cached: false,
                 mock: true,
+                message: 'Using mock data (API rate limit reached)',
                 fetchedAt: new Date()
             });
         }
@@ -335,6 +336,7 @@ app.get('/api/stock', async (req, res) => {
                 symbol: symbol,
                 cached: false,
                 mock: true,
+                message: 'Using mock data (invalid API response)',
                 fetchedAt: new Date()
             });
         }
@@ -365,7 +367,7 @@ app.get('/api/stock', async (req, res) => {
             symbol: symbol,
             cached: false,
             mock: true,
-            error: 'Using mock data due to API error',
+            message: 'Using mock data (API limit reached)',
             fetchedAt: new Date()
         });
     }
