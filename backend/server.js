@@ -259,64 +259,91 @@ app.get('/api/stock', async (req, res) => {
     try {
         console.log(`📊 Fetching stock data for ${symbol}...`);
         
-        // キャッシュから取得を試行
-        const { rows: cachedRows } = await query(
+        // フレッシュキャッシュから取得を試行（18時間以内）
+        const { rows: freshCachedRows } = await query(
             `
             SELECT data, fetched_at
             FROM stock_cache
             WHERE symbol = $1
-              AND fetched_at > NOW() - 24 * INTERVAL '1 hour'
+              AND fetched_at > NOW() - 18 * INTERVAL '1 hour'
             ORDER BY fetched_at DESC
             LIMIT 1
             `,
             [symbol]
         );
 
-        if (cachedRows.length > 0) {
-            const cachedEntry = cachedRows[0];
-            let payload = typeof cachedEntry.data === 'string'
+        if (freshCachedRows.length > 0) {
+            const cachedEntry = freshCachedRows[0];
+            const payload = typeof cachedEntry.data === 'string'
                 ? JSON.parse(cachedEntry.data)
                 : cachedEntry.data;
 
-            // キャッシュされたデータがAPI制限エラーやモックデータでない場合のみ使用
-            if (payload && 
-                !payload.Information?.includes('rate limit') && 
-                !payload.mock &&
-                payload['Time Series (Daily)']) {
-                console.log(`✅ Returning cached real data for ${symbol}`);
+            // 実データかどうかチェック
+            if (payload && payload['Time Series (Daily)']) {
+                const dataAge = Math.round((new Date() - new Date(cachedEntry.fetched_at)) / (1000 * 60 * 60));
+                console.log(`✅ Returning fresh cached data for ${symbol} (${dataAge}h old)`);
+                
                 return res.json({
                     data: payload,
                     symbol: symbol,
                     cached: true,
+                    dataAge: `${dataAge}時間前`,
+                    status: 'fresh',
                     fetchedAt: cachedEntry.fetched_at
                 });
-            } else {
-                console.log(`⚠️ Cached data is invalid/mock, trying fresh API call for ${symbol}`);
-                // 無効なキャッシュの場合は新しくAPIを試行
             }
         }
 
-        // キャッシュにない場合は新規取得
+        // 新しいデータを取得
         console.log(`🔄 Fetching fresh ${symbol} data from Alpha Vantage...`);
         const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
         const response = await fetch(url);
         const result = await response.json();
 
-        // API制限チェック
+        // API制限チェック - 古いキャッシュを探す
         if (result['Information'] && result['Information'].includes('rate limit')) {
-            console.log(`⚠️ Alpha Vantage API rate limit reached, using mock data for ${symbol}`);
-            const mockData = generateMockStockData(symbol);
+            console.log(`⚠️ Alpha Vantage API rate limit reached, searching for old cache for ${symbol}`);
             
-            // モックデータはキャッシュしない（実データを優先するため）
-            console.log(`📝 Mock data not cached - will retry API on next request`);
-            
-            return res.json({
-                data: mockData,
-                symbol: symbol,
-                cached: false,
-                mock: true,
-                message: 'Using mock data (API rate limit reached)',
-                fetchedAt: new Date()
+            // バックアップキャッシュから取得（7日以内）
+            const { rows: oldCachedRows } = await query(
+                `
+                SELECT data, fetched_at
+                FROM stock_cache
+                WHERE symbol = $1
+                  AND fetched_at > NOW() - 7 * INTERVAL '1 day'
+                ORDER BY fetched_at DESC
+                LIMIT 1
+                `,
+                [symbol]
+            );
+
+            if (oldCachedRows.length > 0) {
+                const oldCachedEntry = oldCachedRows[0];
+                const oldPayload = typeof oldCachedEntry.data === 'string'
+                    ? JSON.parse(oldCachedEntry.data)
+                    : oldCachedEntry.data;
+
+                if (oldPayload && oldPayload['Time Series (Daily)']) {
+                    const dayAge = Math.round((new Date() - new Date(oldCachedEntry.fetched_at)) / (1000 * 60 * 60 * 24));
+                    console.log(`✅ Returning old cached data for ${symbol} (${dayAge} days old)`);
+                    
+                    return res.json({
+                        data: oldPayload,
+                        symbol: symbol,
+                        cached: true,
+                        dataAge: `${dayAge}日前`,
+                        status: 'old',
+                        message: `API制限中のため${dayAge}日前のデータを表示`,
+                        fetchedAt: oldCachedEntry.fetched_at
+                    });
+                }
+            }
+
+            // キャッシュもない場合はエラー
+            return res.status(503).json({
+                error: 'API limit reached and no cached data available',
+                message: 'サービス一時停止中：API制限に達しており、キャッシュデータもありません。しばらく後にお試しください。',
+                retryAfter: '1時間後'
             });
         }
 
@@ -329,23 +356,10 @@ app.get('/api/stock', async (req, res) => {
         }
 
         if (!result['Time Series (Daily)']) {
-            console.log(`⚠️ Invalid API response format, using mock data for ${symbol}`);
-            const mockData = generateMockStockData(symbol);
-            
-            // モックデータはキャッシュしない
-            console.log(`📝 Mock data not cached - will retry API on next request`);
-            
-            return res.json({
-                data: mockData,
-                symbol: symbol,
-                cached: false,
-                mock: true,
-                message: 'Using mock data (invalid API response)',
-                fetchedAt: new Date()
-            });
+            throw new Error('Invalid API response format - no stock data received');
         }
 
-        // データをキャッシュに保存
+        // 新しいデータをキャッシュに保存
         await query(
             'INSERT INTO stock_cache (symbol, data, fetched_at) VALUES ($1, $2, NOW()) ON CONFLICT (symbol) DO UPDATE SET data = $2, fetched_at = NOW()',
             [symbol, JSON.stringify(result)]
@@ -356,24 +370,59 @@ app.get('/api/stock', async (req, res) => {
             data: result,
             symbol: symbol,
             cached: false,
+            dataAge: '最新',
+            status: 'fresh',
             fetchedAt: new Date()
         });
 
     } catch (error) {
         console.error(`❌ Error fetching ${symbol} data:`, error);
         
-        // エラーの場合もモックデータで対応（キャッシュしない）
-        console.log(`🔄 Falling back to mock data for ${symbol}`);
-        console.log(`📝 Mock data not cached - will retry API on next request`);
-        const mockData = generateMockStockData(symbol);
-        
-        res.json({
-            data: mockData,
-            symbol: symbol,
-            cached: false,
-            mock: true,
-            message: 'Using mock data (API error)',
-            fetchedAt: new Date()
+        // エラー時も古いキャッシュを探す
+        console.log(`🔄 Searching for backup cache due to error for ${symbol}`);
+        try {
+            const { rows: backupRows } = await query(
+                `
+                SELECT data, fetched_at
+                FROM stock_cache
+                WHERE symbol = $1
+                  AND fetched_at > NOW() - 7 * INTERVAL '1 day'
+                ORDER BY fetched_at DESC
+                LIMIT 1
+                `,
+                [symbol]
+            );
+
+            if (backupRows.length > 0) {
+                const backupEntry = backupRows[0];
+                const backupPayload = typeof backupEntry.data === 'string'
+                    ? JSON.parse(backupEntry.data)
+                    : backupEntry.data;
+
+                if (backupPayload && backupPayload['Time Series (Daily)']) {
+                    const dayAge = Math.round((new Date() - new Date(backupEntry.fetched_at)) / (1000 * 60 * 60 * 24));
+                    console.log(`✅ Returning backup data for ${symbol} (${dayAge} days old)`);
+                    
+                    return res.json({
+                        data: backupPayload,
+                        symbol: symbol,
+                        cached: true,
+                        dataAge: `${dayAge}日前`,
+                        status: 'backup',
+                        message: `APIエラーのため${dayAge}日前のデータを表示`,
+                        fetchedAt: backupEntry.fetched_at
+                    });
+                }
+            }
+        } catch (backupError) {
+            console.error(`❌ Backup cache search failed:`, backupError);
+        }
+
+        // 最後の手段：完全エラー
+        res.status(500).json({
+            error: 'Unable to fetch stock data',
+            message: '株価データの取得に失敗しました。キャッシュデータもありません。',
+            details: error.message
         });
     }
 });
@@ -389,66 +438,6 @@ app.delete('/api/stock/cache', async (req, res) => {
         res.status(500).json({ error: 'Failed to clear cache' });
     }
 });
-
-// モックデータ生成関数
-function generateMockStockData(symbol) {
-    const today = new Date();
-    const dailyTimeSeries = {};
-    const monthlyTimeSeries = {};
-    
-    // 過去60ヶ月（5年分）のモックデータを生成 + 現在の月も含む
-    for (let i = 0; i <= 60; i++) { // 0から開始して現在月も含む
-        const date = new Date(today);
-        date.setMonth(date.getMonth() - i);
-        const monthStr = date.toISOString().substring(0, 7) + '-01'; // YYYY-MM-01 形式
-        
-        // SPYの実際の価格帯（約400-600ドル）でランダムに生成
-        const basePrice = 500;
-        const variation = (Math.random() - 0.5) * 50; // ±25ドルの変動
-        const price = basePrice + variation;
-        
-        monthlyTimeSeries[monthStr] = {
-            "1. open": (price * 0.995).toFixed(2),//これは、ランダムな始値を模倣しています
-            "2. high": (price * 1.01).toFixed(2),//これは、ランダムな高値を模倣しています
-            "3. low": (price * 0.99).toFixed(2), //これは、ランダムな高値と安値を模倣しています
-            "4. close": price.toFixed(2),  // クローズ価格
-            "5. volume": Math.floor(Math.random() * 500000000 + 100000000).toString() // これは、ランダムな取引量を模倣しています
-        };
-    }
-    
-    // 過去30日分のデイリーデータも生成
-    for (let i = 0; i < 30; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-        
-        const basePrice = 500;
-        const variation = (Math.random() - 0.5) * 20; // ±10ドルの変動
-        const price = basePrice + variation + (Math.random() - 0.5) * 5; // 日次変動
-        
-        dailyTimeSeries[dateStr] = {
-            "1. open": (price * 0.999).toFixed(2),
-            "2. high": (price * 1.005).toFixed(2),
-            "3. low": (price * 0.995).toFixed(2),
-            "4. close": price.toFixed(2),
-            "5. volume": Math.floor(Math.random() * 50000000 + 10000000).toString()
-        };
-    }
-    
-    console.log(`📊 Generated mock data - Monthly keys:`, Object.keys(monthlyTimeSeries).slice(0, 5));
-    
-    return {
-        "Meta Data": {
-            "1. Information": "Daily Prices and Monthly Prices (Mock Data)",
-            "2. Symbol": symbol,
-            "3. Last Refreshed": today.toISOString().split('T')[0],
-            "4. Output Size": "Compact",
-            "5. Time Zone": "US/Eastern"
-        },
-        "Time Series (Daily)": dailyTimeSeries,
-        "Monthly Time Series": monthlyTimeSeries
-    };
-}
 
 app.get('/api/stock-cached/:symbol', async (req, res) => {
     const { symbol } = req.params;
