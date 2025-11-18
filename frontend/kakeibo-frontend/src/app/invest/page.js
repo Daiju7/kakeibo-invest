@@ -193,14 +193,14 @@ export default function Invest() {
     const hasStockTimeSeries =
         stockData &&
         !stockData.error &&
-        (stockData["Time Series (Daily)"] || stockData["Monthly Time Series"]);
+        !!(stockData["Time Series (Daily)"] || stockData["Monthly Time Series"]);
 
     console.log("📊 Stock data validation:", {
         hasStockData: !!stockData,
         hasError: !!stockData?.error,
         hasDaily: !!(stockData && stockData["Time Series (Daily)"]),
         hasMonthly: !!(stockData && stockData["Monthly Time Series"]),
-        hasStockTimeSeries,
+        hasStockTimeSeries: hasStockTimeSeries, // boolean値であることを確認
         stockDataKeys: stockData ? Object.keys(stockData).slice(0, 10) : []
     });
 
