@@ -75,10 +75,26 @@ export default function Invest() {
                 const actualStockData = stockJson.data || stockJson;
                 console.log("📈 Actual stock data structure:", Object.keys(actualStockData));
                 
-                // モックデータの場合は警告表示（エラーではない）
-                if (stockJson.mock) {
-                    console.warn("⚠️ Using mock data:", stockJson.message || "Mock data is being used");
+                // データの状態を表示
+                if (stockJson.status === 'old') {
+                    console.warn("⚠️ Using old cached data:", stockJson.message);
+                    console.log(`📅 Data age: ${stockJson.dataAge}`);
+                } else if (stockJson.status === 'backup') {
+                    console.warn("⚠️ Using backup data:", stockJson.message);
+                    console.log(`📅 Data age: ${stockJson.dataAge}`);
+                } else if (stockJson.cached) {
+                    console.log(`✅ Using fresh cached data: ${stockJson.dataAge || '最新'}`);
+                } else {
+                    console.log("✅ Using fresh API data");
                 }
+                
+                // 株価データにステータス情報を追加
+                actualStockData._dataStatus = {
+                    status: stockJson.status || 'fresh',
+                    dataAge: stockJson.dataAge || '最新',
+                    message: stockJson.message || null,
+                    cached: stockJson.cached || false
+                };
                 
                 setStockData(actualStockData);
 
@@ -264,7 +280,23 @@ export default function Invest() {
                     <section className={styles.heroCard}>
                         <div className={styles.heroHeader}>
                             <h1 className={styles.heroTitle}>📈 S&P500 基準価額</h1>
-                            <p className={styles.heroSubtitle}></p>
+                            {stockData._dataStatus && (
+                                <div className={styles.dataStatus}>
+                                    {stockData._dataStatus.status === 'fresh' ? (
+                                        <span className={styles.statusFresh}>
+                                            ✅ {stockData._dataStatus.dataAge}のデータ
+                                        </span>
+                                    ) : stockData._dataStatus.status === 'old' ? (
+                                        <span className={styles.statusOld}>
+                                            ⚠️ {stockData._dataStatus.dataAge}のデータ（API制限中）
+                                        </span>
+                                    ) : stockData._dataStatus.status === 'backup' ? (
+                                        <span className={styles.statusBackup}>
+                                            ⚠️ {stockData._dataStatus.dataAge}のデータ（APIエラー）
+                                        </span>
+                                    ) : null}
+                                </div>
+                            )}
                         </div>
                         <div className={styles.heroMetrics}>
                             <div className={styles.metricPill}>
